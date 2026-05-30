@@ -1,0 +1,1017 @@
+use std::{
+    fmt,
+    io::{Cursor, Read},
+    num::NonZeroUsize,
+    path::PathBuf,
+    str::FromStr,
+};
+
+use ecow::EcoVec;
+use indoc::formatdoc;
+use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
+use tar::Archive;
+use tsify::Tsify;
+use typst::{
+    compile,
+    ecow::EcoString,
+    foundations::Bytes,
+    introspection::HtmlPosition,
+    layout::{Abs, PagedDocument, Point, Position},
+    syntax::{FileId, Source, VirtualPath, package::PackageSpec},
+};
+use typst_html::HtmlDocument;
+use typst_ide::Tooltip;
+// use typst_html::html;
+// use typst_pdf::{PdfOptions, pdf};
+use typst_syntax::{LinkedNode, Side, Tag};
+
+use super::{
+    index_mapper::IndexMapper,
+    renderer::{
+        RenderTarget,
+        html::{self, RenderHtmlResult},
+        paged::svg::{SvgRangedFrame, render_svgs_by_items},
+        remove_errornous_block, sync_source_context, sync_source_state,
+    },
+    world::MnemoWorld,
+    wrappers::{TypstCompletion, TypstDiagnostic, TypstHighlight, TypstJump},
+};
+
+/// Global state for Typst rendering and compilation in Mnemo.
+///
+/// Holds the world, all open source and space contexts, and manages the mapping between user/editor state and Typst's compilation model.
+#[derive(Default)]
+pub struct TypstState {
+    /// The Typst world, containing all loaded files and fonts.
+    pub(crate) world: MnemoWorld,
+    /// Mapping from space IDs to their context (fonts, theme, locale).
+    pub(crate) space_context_map: FxHashMap<String, SpaceContext>,
+    /// Mapping from file IDs to their source context (main/aux sources, index mapping, etc).
+    pub(crate) source_context_map: FxHashMap<FileId, SourceContext>,
+}
+
+#[boltffi::export(single_threaded)]
+impl TypstState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set_theme(&mut self, id: &FileId, theme: ThemeColors) {
+        self.get_space_context_mut(id).theme = theme;
+    }
+
+    pub fn set_font(&mut self, id: &FileId, font: String) {
+        self.get_space_context_mut(id).font = font;
+    }
+
+    pub fn set_math_font(&mut self, id: &FileId, math_font: Option<String>) {
+        self.get_space_context_mut(id).math_font = math_font;
+    }
+
+    pub fn set_code_font(&mut self, id: &FileId, code_font: Option<String>) {
+        self.get_space_context_mut(id).code_font = code_font;
+    }
+
+    pub fn set_locale(&mut self, id: &FileId, locale: String) {
+        self.get_space_context_mut(id).locale = locale;
+    }
+
+    pub fn create_source_id(&mut self, path: String, space_id: String) -> FileId {
+        let id = FileId::new(None, VirtualPath::new(&path).with_extension("typ"));
+
+        let source_ctx = SourceContext::new(id, space_id.clone());
+        self.world.insert_source(source_ctx.aux_id, String::new());
+        self.source_context_map.insert(id, source_ctx);
+
+        let space_ctx = SpaceContext::new();
+        self.space_context_map.insert(space_id, space_ctx);
+
+        id
+    }
+
+    pub fn create_file_id(&mut self, path: String) -> FileId {
+        FileId::new(None, VirtualPath::new(&path))
+    }
+
+    pub fn insert_source(&mut self, id: FileId, text: String) {
+        self.world.insert_source(id, text);
+    }
+
+    pub fn insert_file(&mut self, id: FileId, bytes: Vec<u8>) {
+        self.world.insert_file(id, Bytes::new(bytes));
+    }
+
+    pub fn remove_file(&mut self, id: FileId) {
+        self.source_context_map.remove(&id);
+        self.world.remove_source(&id);
+    }
+
+    pub fn install_package(&mut self, spec: &str, data: Vec<u8>) -> Result<(), String> {
+        let package_spec = Some(PackageSpec::from_str(spec).map_err(|e| e.to_string())?);
+
+        let data = Cursor::new(data);
+        let data = flate2::read::GzDecoder::new(data);
+        let mut archive = Archive::new(data);
+
+        for entry in archive.entries().unwrap() {
+            let mut file = entry.unwrap();
+            let path = file.path().unwrap();
+
+            let id = FileId::new(package_spec.clone(), VirtualPath::new(&path));
+
+            let mut content = Vec::new();
+            file.read_to_end(&mut content).unwrap();
+
+            match String::from_utf8(content.clone()) {
+                Ok(content) => self.world.insert_source(id, content),
+                Err(..) => self.world.insert_file(id, Bytes::new(content)),
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn install_font(&mut self, bytes: Vec<u8>) {
+        self.world.install_font(bytes);
+    }
+
+    fn process_requests(&self) -> Vec<TypstRequest> {
+        let mut requests = Vec::new();
+
+        for source in self.world.requested_sources.iter() {
+            requests.push(TypstRequest::Source(source.as_rooted_path().to_path_buf()));
+        }
+        self.world.requested_sources.clear();
+
+        for file in self.world.requested_files.iter() {
+            requests.push(TypstRequest::File(file.as_rooted_path().to_path_buf()));
+        }
+        self.world.requested_files.clear();
+
+        for package in self.world.requested_packages.iter() {
+            requests.push(TypstRequest::Package {
+                namespace: package.namespace.to_string(),
+                name: package.name.to_string(),
+                version: package.version.to_string(),
+            });
+        }
+        self.world.requested_packages.clear();
+
+        requests
+    }
+
+    pub fn compile_paged(&mut self, id: &FileId, text: &str, prelude: &str) -> CompilePagedResult {
+        let result = render_svgs_by_items(id, text, prelude, self);
+
+        CompilePagedResult {
+            frames: result.frames,
+            tooltips: result.tooltips,
+            diagnostics: result.diagnostics,
+            requests: self.process_requests(),
+        }
+    }
+
+    // pub fn compile_html(&mut self, id: &FileId, text: &str, prelude: &str) -> CompileHTMLResult {
+    //     let result = html::render(id, text, prelude, self);
+
+    //     CompileHTMLResult {
+    //         frames: result.frames,
+    //         diagnostics: result.diagnostics,
+    //         requests: self.process_requests(),
+    //     }
+    // }
+
+    pub fn check_paged(&mut self, id: &FileId, text: &str, prelude: &str) -> CheckResult {
+        let (ir, _) = sync_source_state(id, text, prelude, RenderTarget::Svg, self);
+
+        let context = self.source_context_map.get_mut(id).unwrap();
+        context
+            .main_source_mut(&mut self.world)
+            .unwrap()
+            .replace(&ir);
+
+        let compiled = compile::<PagedDocument>(&self.world);
+        let compiled_warnings = Some(compiled.warnings);
+
+        let mut diagnostics = Vec::new();
+
+        if let Some(warnings) = compiled_warnings {
+            diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                warnings,
+                &context,
+                &self.world,
+            ));
+        }
+
+        match compiled.output {
+            Ok(document) => {
+                context.paged_document = Some(document);
+            }
+            Err(source_diagnostics) => {
+                diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                    source_diagnostics,
+                    &context,
+                    &self.world,
+                ));
+            }
+        }
+
+        CheckResult {
+            diagnostics,
+            requests: self.process_requests(),
+        }
+    }
+
+    pub fn check_html(&mut self, id: &FileId, text: &str, prelude: &str) -> CheckResult {
+        let (ir, _) = sync_source_state(id, text, prelude, RenderTarget::Html, self);
+
+        let context = self.source_context_map.get_mut(id).unwrap();
+        context
+            .main_source_mut(&mut self.world)
+            .unwrap()
+            .replace(&ir);
+
+        let compiled = compile::<HtmlDocument>(&self.world);
+        let compiled_warnings = Some(compiled.warnings);
+
+        let mut diagnostics = Vec::new();
+
+        if let Some(warnings) = compiled_warnings {
+            diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                warnings,
+                &context,
+                &self.world,
+            ));
+        }
+
+        match compiled.output {
+            Ok(document) => {
+                context.html_document = Some(document);
+            }
+            Err(source_diagnostics) => {
+                diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                    source_diagnostics,
+                    &context,
+                    &self.world,
+                ));
+            }
+        }
+
+        CheckResult {
+            diagnostics,
+            requests: self.process_requests(),
+        }
+    }
+
+    pub fn highlight(&mut self, id: &FileId, text: &str) -> Vec<TypstHighlight> {
+        let Some(context) = self.source_context_map.get(id) else {
+            return Vec::new();
+        };
+
+        let root = typst_syntax::parse(text);
+        let Some(aux_source) = context.aux_source_mut(&mut self.world) else {
+            return Vec::new();
+        };
+        aux_source.replace(text);
+
+        let mut queue = vec![LinkedNode::new(&root)];
+        let mut highlights = Vec::new();
+
+        let aux_lines = aux_source.lines();
+
+        while queue.len() > 0 {
+            let curr = queue.pop().unwrap();
+            let tag = typst_syntax::highlight(&curr);
+            let range = curr.range();
+
+            let highlight = tag.and_then(|tag| {
+                let aux_range_start_utf16 = aux_lines.byte_to_utf16(range.start)?;
+                let aux_range_end_utf16 = aux_lines.byte_to_utf16(range.end)?;
+                let aux_range_utf16 = aux_range_start_utf16..aux_range_end_utf16;
+
+                let mut css_class = tag.css_class().to_string();
+
+                match tag {
+                    Tag::Heading => {
+                        let node = curr.get();
+
+                        let Some(marker_node) = node.children().next() else {
+                            unreachable!()
+                        };
+                        let level = marker_node.text().len();
+
+                        css_class += " typ-heading-level-";
+                        css_class += level.to_string().as_str();
+                    }
+                    _ => {}
+                }
+
+                Some(TypstHighlight {
+                    tag: css_class,
+                    range: aux_range_utf16,
+                })
+            });
+
+            if let Some(highlight) = highlight {
+                let idx = highlights
+                    .binary_search_by_key(&highlight.range.start, |highlight: &TypstHighlight| {
+                        highlight.range.start
+                    });
+
+                match idx {
+                    Ok(idx) | Err(idx) => highlights.insert(idx, highlight),
+                }
+            }
+
+            for child in curr.children() {
+                queue.push(child);
+            }
+        }
+
+        highlights
+    }
+
+    pub fn jump_paged(&mut self, id: &FileId, x: f64, mut y: f64) -> Option<TypstJump> {
+        let context = self.source_context_map.get(id)?;
+        let document = context.paged_document.as_ref()?;
+
+        let index = document
+            .pages
+            .iter()
+            .rposition(|page| y >= page.frame.height().to_pt())
+            .unwrap_or_default();
+
+        let page_offset = document
+            .pages
+            .iter()
+            .map(|page| page.frame.height().to_pt())
+            .rfind(|height| y >= *height)
+            .unwrap_or_default();
+        y -= page_offset;
+
+        let position = Position {
+            page: NonZeroUsize::new(index + 1).unwrap(),
+            point: Point::new(Abs::pt(x), Abs::pt(y)),
+        };
+
+        typst_ide::jump_from_click(&self.world, document, &position)
+            .and_then(|jump| TypstJump::from_mapped(jump, context, &self.world))
+    }
+
+    pub fn jump_html(&mut self, id: &FileId, element: Vec<usize>) -> Option<TypstJump> {
+        let context = self.source_context_map.get(id)?;
+        let document = context.html_document.as_ref()?;
+
+        typst_ide::jump_from_click(
+            &self.world,
+            document,
+            &HtmlPosition::new(EcoVec::from(element)),
+        )
+        .and_then(|jump| TypstJump::from_mapped(jump, context, &self.world))
+    }
+
+    pub fn autocomplete(
+        &self,
+        id: &FileId,
+        aux_cursor_utf16: usize,
+        explicit: bool,
+    ) -> Option<Autocomplete> {
+        let context = self.source_context_map.get(id)?;
+
+        let main_source = context.main_source(&self.world)?;
+        let aux_source = context.aux_source(&self.world)?;
+
+        let aux_lines = aux_source.lines();
+        let aux_cursor = aux_lines.utf16_to_byte(aux_cursor_utf16)?;
+        let main_cursor = context.map_aux_to_main_from_left(aux_cursor);
+
+        // crate::log!(
+        //     "aux_cursor: {aux_cursor}, left_cursor: {main_cursor}, right_cursor: {}",
+        //     context.map_aux_to_main_from_right(aux_cursor)
+        // );
+
+        let (main_offset, completions) = typst_ide::autocomplete(
+            &self.world,
+            context.paged_document.as_ref(),
+            main_source,
+            main_cursor,
+            explicit,
+        )?;
+
+        let aux_offset = context.map_main_to_aux_from_left(main_offset);
+        let aux_offset_utf16 = aux_lines.byte_to_utf16(aux_offset)?;
+
+        Some(Autocomplete {
+            offset: aux_offset_utf16,
+            completions: completions
+                .into_iter()
+                .map(TypstCompletion::from)
+                .collect::<Vec<_>>(),
+        })
+    }
+
+    pub fn hover(&self, id: &FileId, aux_cursor_utf16: usize, side: i8) -> Option<String> {
+        let context = self.source_context_map.get(id).unwrap();
+
+        let main_source = context.main_source(&self.world)?;
+        let aux_source = context.aux_source(&self.world)?;
+
+        let aux_lines = aux_source.lines();
+        let aux_cursor = aux_lines.utf16_to_byte(aux_cursor_utf16)?;
+        let main_cursor = context.map_aux_to_main_from_right(aux_cursor);
+
+        let side = if side == -1 {
+            Side::Before
+        } else {
+            Side::After
+        };
+
+        let tooltip = typst_ide::tooltip(
+            &self.world,
+            context.paged_document.as_ref(),
+            main_source,
+            main_cursor,
+            side,
+        );
+
+        tooltip.map(|tooltip| match tooltip {
+            Tooltip::Text(text) => text.to_string(),
+            Tooltip::Code(text) => typst_syntax::highlight_html(&typst_syntax::parse(&text)),
+        })
+    }
+
+    pub fn resize(&mut self, id: &FileId, width: Option<f64>, height: Option<f64>) -> bool {
+        let context = self.source_context_map.get_mut(id).unwrap();
+
+        let width = width
+            .map(|width| width.to_string() + "pt")
+            .unwrap_or_else(|| String::from("auto"));
+        let width_changed = context.width != width;
+
+        context.width = width;
+        context.height = height;
+
+        width_changed
+    }
+
+    // pub fn render_pdf(&mut self, id: &FileId) -> RenderPdfResult {
+    //     self.world.main_id = Some(id);
+
+    //     let mut ir = self.prelude(id, RenderTarget::Pdf);
+
+    //     let context = self.source_context_map.get_mut(id).unwrap();
+    //     let main_source = context.main_source_mut(&mut self.world).unwrap();
+    //     let text = main_source.text().to_string();
+    //     ir += &text;
+
+    //     main_source.replace(&ir);
+
+    //     self.world.insert_source(context.aux_id, text);
+    //     self.world.aux_id = Some(context.aux_id);
+
+    //     let compiled = compile(&self.world);
+    //     let mut diagnostics =
+    //         TypstDiagnostic::from_diagnostics(compiled.warnings, &context, &self.world).into_vec();
+
+    //     let bytes = match compiled.output {
+    //         Ok(document) => {
+    //             match pdf(&document, &PdfOptions::default()) {
+    //                 Ok(pdf) => Some(pdf),
+    //                 Err(source_diagnostics) => {
+    //                     diagnostics.extend(TypstDiagnostic::from_diagnostics(
+    //                         source_diagnostics,
+    //                         &context,
+    //                         &self.world,
+    //                     ));
+
+    //                     None
+    //                 }
+    //             }
+    //         }
+    //         Err(source_diagnostics) => {
+    //             diagnostics.extend(TypstDiagnostic::from_diagnostics(
+    //                 source_diagnostics,
+    //                 &context,
+    //                 &self.world,
+    //             ));
+
+    //             None
+    //         }
+    //     };
+
+    //     RenderPdfResult { bytes, diagnostics }
+    // }
+
+    // pub fn render_html(&mut self, id: &FileId, text: &str, prelude: &str) -> RenderHtmlResult {
+    //     let (ir, ast_blocks) = sync_source_state(id, text, prelude, RenderTarget::Html, self);
+
+    //     let mut diagnostics = Vec::new();
+    //     let mut compiled_warnings = None;
+
+    //     let context = self.source_context_map.get_mut(id).unwrap();
+
+    //     context
+    //         .main_source_mut(&mut self.world)
+    //         .unwrap()
+    //         .replace(&ir);
+
+    //     let mut document = None;
+    //     let mut convergence = 0_u8;
+
+    //     while document.is_none() {
+    //         let compiled = compile::<HtmlDocument>(&self.world);
+    //         compiled_warnings = Some(compiled.warnings);
+
+    //         document = match compiled.output {
+    //             Ok(document) => {
+    //                 let html = typst_html::html(&document);
+
+    //                 match html {
+    //                     Ok(html) => Some(html),
+    //                     Err(source_diagnostics) => {
+    //                         crate::error!("[HTML ERRORS]: {source_diagnostics:?}");
+
+    //                         diagnostics.extend(TypstDiagnostic::from_diagnostics(
+    //                             source_diagnostics,
+    //                             &context,
+    //                             &self.world,
+    //                         ));
+
+    //                         None
+    //                     }
+    //                 }
+    //             }
+    //             Err(source_diagnostics) => {
+    //                 convergence += 1;
+    //                 if convergence >= 128 {
+    //                     crate::error!("COULD NOT CONVERGE ‼️");
+
+    //                     break;
+    //                 }
+
+    //                 diagnostics.extend(TypstDiagnostic::from_diagnostics(
+    //                     source_diagnostics.clone(),
+    //                     context,
+    //                     &mut self.world,
+    //                 ));
+
+    //                 crate::error!("[ERRORS]: {diagnostics:?}");
+
+    //                 let indicies = remove_errornous_block(
+    //                     &ast_blocks,
+    //                     source_diagnostics,
+    //                     context,
+    //                     &mut self.world,
+    //                 );
+
+    //                 if indicies.is_empty() {
+    //                     crate::error!("NO ERROR BLOCKS FOUND ‼️");
+
+    //                     break;
+    //                 }
+
+    //                 None
+    //             }
+    //         };
+    //     }
+
+    //     if let Some(warnings) = compiled_warnings {
+    //         diagnostics.extend(TypstDiagnostic::from_diagnostics(
+    //             warnings,
+    //             &context,
+    //             &self.world,
+    //         ));
+    //     }
+
+    //     RenderHtmlResult {
+    //         document,
+    //         diagnostics,
+    //     }
+    // }
+}
+
+impl TypstState {
+    pub fn world(&self) -> &MnemoWorld {
+        &self.world
+    }
+
+    pub fn world_mut(&mut self) -> &mut MnemoWorld {
+        &mut self.world
+    }
+
+    pub fn get_source_context(&self, id: &FileId) -> &SourceContext {
+        self.source_context_map.get(id).unwrap()
+    }
+
+    pub fn get_source_context_mut(&mut self, id: &FileId) -> &mut SourceContext {
+        self.source_context_map.get_mut(id).unwrap()
+    }
+
+    pub fn get_space_context(&self, id: &FileId) -> &SpaceContext {
+        let space_id = &self.get_source_context(id).space_id;
+        let space_ctx = self.space_context_map.get(space_id).unwrap();
+
+        space_ctx
+    }
+
+    pub fn get_space_context_mut(&mut self, id: &FileId) -> &mut SpaceContext {
+        let space_id = self.get_source_context(id).space_id.clone();
+        let space_ctx = self.space_context_map.get_mut(&space_id).unwrap();
+
+        space_ctx
+    }
+}
+
+#[comemo::track]
+impl TypstState {
+    pub fn prelude(&self, id: &FileId, render_target: RenderTarget) -> String {
+        let source_ctx = self.source_context_map.get(id).unwrap();
+        let space_ctx = self.space_context_map.get(&source_ctx.space_id).unwrap();
+
+        let page_config = match render_target {
+            RenderTarget::Svg => {
+                formatdoc!(
+                    r#"
+                        #set page(fill:rgb(0,0,0,0),width:{width},height:auto,margin:0pt)
+                        #set text(top-edge:"ascender",bottom-edge:"descender")
+                        #set par(leading:0.125em)
+                    "#,
+                    width = source_ctx.width,
+                )
+            }
+            RenderTarget::Pdf => {
+                formatdoc!(
+                    r#"
+                        #set page(width:{width},height:auto,margin:16pt)
+                    "#,
+                    width = source_ctx.width,
+                )
+            }
+            RenderTarget::Html => formatdoc!(""),
+        };
+
+        formatdoc!(
+            r#"
+                #let theme={theme}
+                #set text(fill:theme.on-background,size:{text_size}pt,lang:"{locale}",font:"{font}")
+
+                #show heading.where(level:1):set text(fill:theme.primary,size:32pt,weight:400)
+                #show heading.where(level:2):set text(fill:theme.secondary,size:28pt,weight:400)
+                #show heading.where(level:3):set text(fill:theme.tertiary,size:24pt,weight:400)
+                #show heading.where(level:4):set text(fill:theme.primary,size:22pt,weight:400)
+                #show heading.where(level:5):set text(fill:theme.secondary,size:16pt,weight:500)
+                #show heading.where(level:6):set text(fill:theme.tertiary,size:14pt,weight:500)
+
+                #show link:set text(fill:theme.primary)
+                #show link:underline
+
+                #set line(stroke:theme.outline)
+                #set table(stroke:theme.outline)
+                #set circle(stroke:theme.outline)
+                #set ellipse(stroke:theme.outline)
+                #set line(stroke:theme.outline)
+                #set curve(stroke:theme.outline)
+                #set polygon(stroke:theme.outline)
+                #set rect(stroke:theme.outline)
+                #set square(stroke:theme.outline)
+
+                #show math.equation:set text(font:"{math_font}")
+                #show math.equation.where(block:true):set text(size:18pt)
+                #show math.equation.where(block:true):set par(leading:9pt)
+
+                #show raw:set text(font:"{code_font}")
+
+                #context {{show math.equation:set text(size:text.size*2)}}
+
+                {page_config}
+            "#,
+            text_size = source_ctx.text_size,
+            font = space_ctx.font,
+            math_font = space_ctx.math_font.as_ref().unwrap_or(&space_ctx.font),
+            code_font = space_ctx.code_font.as_ref().unwrap_or(&space_ctx.font),
+            locale = space_ctx.locale,
+            theme = space_ctx.theme,
+        )
+    }
+}
+
+/// Per-space configuration for rendering (fonts, theme, locale).
+pub struct SpaceContext {
+    /// Default font for this space.
+    pub font: String,
+    /// Math font for this space.
+    pub math_font: Option<String>,
+    /// Code font for this space.
+    pub code_font: Option<String>,
+    /// Theme colors for this space.
+    pub theme: ThemeColors,
+    /// Locale for this space.
+    pub locale: String,
+}
+
+impl SpaceContext {
+    pub fn new() -> Self {
+        Self {
+            font: String::from("Maple Mono"),
+            math_font: Some(String::from("New Computer Modern Math")),
+            code_font: Some(String::from("Maple Mono")),
+            theme: ThemeColors::default(),
+            locale: String::from("en"),
+        }
+    }
+}
+
+/// Context for a single Typst source file, tracking both main and aux sources and their mapping.
+#[derive(Debug)]
+pub struct SourceContext {
+    /// FileId of the main (intermediate/compiled) source.
+    pub main_id: FileId,
+    /// FileId of the aux (user/editor) source.
+    pub aux_id: FileId,
+    /// The space this source belongs to.
+    pub space_id: String,
+    /// Index mapping between aux and main sources.
+    pub index_mapper: IndexMapper,
+    /// Cached paged document for this source, if available.
+    pub paged_document: Option<PagedDocument>,
+    /// Cached HTML document for this source, if available.
+    pub html_document: Option<HtmlDocument>,
+    /// Page width setting for this source.
+    pub width: String,
+    /// Page height setting for this source.
+    pub height: Option<f64>,
+    /// Text size for rendering.
+    pub text_size: f64,
+}
+
+impl SourceContext {
+    pub fn new(main_id: FileId, space_id: String) -> Self {
+        let aux_id: FileId = main_id.with_extension("$.typ");
+
+        Self {
+            main_id,
+            aux_id,
+            space_id,
+            index_mapper: IndexMapper::default(),
+            paged_document: None,
+            html_document: None,
+            width: String::from("auto"),
+            height: None,
+            text_size: 16.0,
+        }
+    }
+
+    pub fn main_source<'a>(&self, world: &'a MnemoWorld) -> Option<&'a Source> {
+        world.files.get(&self.main_id)?.source()
+    }
+
+    pub fn main_source_mut<'a>(&self, world: &'a mut MnemoWorld) -> Option<&'a mut Source> {
+        world.files.get_mut(&self.main_id)?.source_mut()
+    }
+
+    pub fn aux_source<'a>(&self, world: &'a MnemoWorld) -> Option<&'a Source> {
+        world.files.get(&self.aux_id)?.source()
+    }
+
+    pub fn aux_source_mut<'a>(&self, world: &'a mut MnemoWorld) -> Option<&'a mut Source> {
+        world.files.get_mut(&self.aux_id)?.source_mut()
+    }
+
+    pub fn map_main_to_aux_from_right(&self, main_idx: usize) -> usize {
+        self.index_mapper.map_main_to_aux_from_right(main_idx)
+    }
+
+    pub fn map_aux_to_main_from_right(&self, aux_idx: usize) -> usize {
+        self.index_mapper.map_aux_to_main_from_right(aux_idx)
+    }
+
+    pub fn map_main_to_aux_from_left(&self, main_idx: usize) -> usize {
+        self.index_mapper.map_main_to_aux_from_left(main_idx)
+    }
+
+    pub fn map_aux_to_main_from_left(&self, aux_idx: usize) -> usize {
+        self.index_mapper.map_aux_to_main_from_left(aux_idx)
+    }
+}
+
+#[boltffi::data]
+pub struct CompilePagedResult {
+    pub frames: Vec<SvgRangedFrame>,
+    pub tooltips: Vec<SvgRangedFrame>,
+    pub diagnostics: Vec<TypstDiagnostic>,
+    pub requests: Vec<TypstRequest>,
+}
+
+// #[boltffi::data]
+// pub struct CompileHTMLResult {
+//     pub frames: Vec<html::HTMLRangedFrame>,
+//     pub diagnostics: Vec<TypstDiagnostic>,
+//     pub requests: Vec<TypstRequest>,
+// }
+
+#[boltffi::data]
+pub struct CheckResult {
+    pub diagnostics: Vec<TypstDiagnostic>,
+    pub requests: Vec<TypstRequest>,
+}
+
+#[boltffi::data]
+pub enum TypstRequest {
+    Source(PathBuf),
+    File(PathBuf),
+    Package {
+        namespace: String,
+        name: String,
+        version: String,
+    },
+}
+
+#[boltffi::data]
+pub struct ThemeColors {
+    background: Rgb,
+    on_background: Rgb,
+
+    outline: Rgb,
+    outline_variant: Rgb,
+
+    primary: Rgb,
+    on_primary: Rgb,
+    primary_container: Rgb,
+    on_primary_container: Rgb,
+
+    secondary: Rgb,
+    on_secondary: Rgb,
+    secondary_container: Rgb,
+    on_secondary_container: Rgb,
+
+    tertiary: Rgb,
+    on_tertiary: Rgb,
+    tertiary_container: Rgb,
+    on_tertiary_container: Rgb,
+
+    error: Rgb,
+    on_error: Rgb,
+    error_container: Rgb,
+    on_error_container: Rgb,
+}
+
+impl Default for ThemeColors {
+    fn default() -> Self {
+        Self {
+            background: Rgb::WHITE,
+            on_background: Rgb::BLACK,
+
+            outline: Rgb::BLACK,
+            outline_variant: Rgb::BLACK,
+
+            primary: Rgb::BLACK,
+            on_primary: Rgb::WHITE,
+            primary_container: Rgb::BLACK,
+            on_primary_container: Rgb::WHITE,
+
+            secondary: Rgb::BLACK,
+            on_secondary: Rgb::WHITE,
+            secondary_container: Rgb::BLACK,
+            on_secondary_container: Rgb::WHITE,
+
+            tertiary: Rgb::BLACK,
+            on_tertiary: Rgb::WHITE,
+            tertiary_container: Rgb::BLACK,
+            on_tertiary_container: Rgb::WHITE,
+
+            error: Rgb::BLACK,
+            on_error: Rgb::WHITE,
+            error_container: Rgb::BLACK,
+            on_error_container: Rgb::WHITE,
+        }
+    }
+}
+
+// #[boltffi::export]
+impl ThemeColors {
+    pub fn new(
+        background: Rgb,
+        on_background: Rgb,
+
+        outline: Rgb,
+        outline_variant: Rgb,
+
+        primary: Rgb,
+        on_primary: Rgb,
+        primary_container: Rgb,
+        on_primary_container: Rgb,
+
+        secondary: Rgb,
+        on_secondary: Rgb,
+        secondary_container: Rgb,
+        on_secondary_container: Rgb,
+
+        tertiary: Rgb,
+        on_tertiary: Rgb,
+        tertiary_container: Rgb,
+        on_tertiary_container: Rgb,
+
+        error: Rgb,
+        on_error: Rgb,
+        error_container: Rgb,
+        on_error_container: Rgb,
+    ) -> Self {
+        Self {
+            background,
+            on_background,
+
+            outline,
+            outline_variant,
+
+            primary,
+            on_primary,
+            primary_container,
+            on_primary_container,
+
+            secondary,
+            on_secondary,
+            secondary_container,
+            on_secondary_container,
+
+            tertiary,
+            on_tertiary,
+            tertiary_container,
+            on_tertiary_container,
+
+            error,
+            on_error,
+            error_container,
+            on_error_container,
+        }
+    }
+}
+
+impl fmt::Display for ThemeColors {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "(background:{},on-background:{},outline:{},outline-variant:{},primary:{},on-primary:{},primary-container:{},on-primary-container:{},secondary:{},on-secondary:{},secondary-container:{},on-secondary-container:{},tertiary:{},on-tertiary:{},tertiary-container:{},on-tertiary-container:{},error:{},on-error:{},error-container:{},on-error-container:{})",
+            self.background,
+            self.on_background,
+            self.outline,
+            self.outline_variant,
+            self.primary,
+            self.on_primary,
+            self.primary_container,
+            self.on_primary_container,
+            self.secondary,
+            self.on_secondary,
+            self.secondary_container,
+            self.on_secondary_container,
+            self.tertiary,
+            self.on_tertiary,
+            self.tertiary_container,
+            self.on_tertiary_container,
+            self.error,
+            self.on_error,
+            self.error_container,
+            self.on_error_container,
+        )
+    }
+}
+
+#[derive(Clone, Copy)]
+#[boltffi::data]
+pub struct Rgb {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl Rgb {
+    pub const BLACK: Self = Self { r: 0, g: 0, b: 0 };
+    pub const WHITE: Self = Self {
+        r: 255,
+        g: 255,
+        b: 255,
+    };
+}
+
+// #[boltffi::export]
+impl Rgb {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+
+    pub fn to_string(&self) -> String {
+        format!("rgb({},{},{})", self.r, self.g, self.b)
+    }
+}
+
+impl fmt::Display for Rgb {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "rgb({},{},{})", self.r, self.g, self.b)
+    }
+}
+
+#[boltffi::data]
+pub struct Autocomplete {
+    pub offset: usize,
+    pub completions: Vec<TypstCompletion>,
+}

@@ -1,0 +1,34 @@
+tasks:
+  generate:
+    action: !generateBindings
+      coreDir: ${project.rootDir}/core
+      generatedSourceDir: ${taskOutputDir}/kotlin
+      generatedIncludeDir: ${taskOutputDir}/include
+      generatedJniLibsDir: ${taskOutputDir}/jniLibs
+      generatedJvmResourcesDir: ${taskOutputDir}/resources
+  # package:
+  #   action: !packageArtifacts
+  #     coreDir: ${project.rootDir}/core
+  #     generatedCommonSourceDir: ${taskOutputDir}/src
+  #     generatedJvmSourceDir: ${taskOutputDir}/src@jvm
+  #     generatedJvmResourcesDir: ${taskOutputDir}/resources@jvm
+  #     generatedAndroidSourceDir: ${taskOutputDir}/src@android
+
+generated:
+  sources:
+    - language: kotlin
+      directory: ${tasks.generate.action.generatedSourceDir}
+
+  # sources:
+  #   - language: kotlin
+  #     directory: ${tasks.package.action.generatedCommonSourceDir}
+  #   - language: kotlin
+  #     directory: ${tasks.package.action.generatedJvmSourceDir}
+  #   - language: kotlin
+  #     directory: ${tasks.package.action.generatedAndroidSourceDir}
+
+  resources:
+    - directory: ${tasks.generate.action.generatedIncludeDir}
+    - directory: ${tasks.generate.action.generatedJniLibsDir}
+    - directory: ${tasks.generate.action.generatedJvmResourcesDir}
+    # - directory: ${tasks.package.action.generatedJvmResourcesDir}

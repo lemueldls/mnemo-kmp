@@ -1,0 +1,9 @@
+modules:
+  # - app/*
+  - app/desktop
+  - app/shared
+  - core/module
+  # - core/plugin
+
+# plugins:
+#   - core/plugin

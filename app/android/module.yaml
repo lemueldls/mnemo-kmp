@@ -1,0 +1,11 @@
+product: android/app
+
+dependencies:
+  - ../shared
+  - $libs.androidx.activity.compose
+  - $libs.androidx.core.splashscreen
+
+settings:
+  compose: enabled
+  android:
+    namespace: dev.lemueldls.mnemo

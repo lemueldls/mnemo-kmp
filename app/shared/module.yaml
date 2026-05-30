@@ -1,0 +1,27 @@
+product:
+  type: kmp/lib
+  #  platforms: [jvm, android, wasmJs, iosSimulatorArm64, iosArm64]
+  platforms: [jvm, android]
+
+dependencies:
+  - ../../core/module
+
+  - $compose.foundation: exported
+  - $compose.material3: exported
+  - $compose.components.resources: exported
+
+  - $libs.compose.material3.windowsizeclass: exported
+  - $libs.androidx.navigation3.ui
+
+  - $libs.materialkolor
+
+# plugins:
+#   core: enabled
+
+settings:
+  kotlin:
+    serialization: json
+  compose:
+    enabled: true
+    resources:
+      exposedAccessors: true
