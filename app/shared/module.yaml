@@ -1,10 +1,10 @@
 product:
   type: kmp/lib
   #  platforms: [jvm, android, wasmJs, iosSimulatorArm64, iosArm64]
-  platforms: [jvm, android]
+  platforms: [jvm]
 
 dependencies:
-  - ../../core/module
+  - ../../core/plugin
 
   - $compose.foundation: exported
   - $compose.material3: exported
@@ -15,8 +15,8 @@ dependencies:
 
   - $libs.materialkolor
 
-# plugins:
-#   core: enabled
+plugins:
+  core: enabled
 
 settings:
   kotlin:

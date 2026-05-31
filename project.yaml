@@ -2,8 +2,7 @@ modules:
   # - app/*
   - app/desktop
   - app/shared
-  - core/module
-  # - core/plugin
+  - core/plugin
 
-# plugins:
-#   - core/plugin
+plugins:
+  - core/plugin

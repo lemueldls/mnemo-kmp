@@ -7,15 +7,10 @@ import androidx.compose.runtime.remember
 import ui.Theme
 import ui.screens.MainScreen
 
-import core.TypstState
-
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun App(windowSizeClass: WindowSizeClass) {
     val settings = remember { mutableStateOf(Settings()) }
-
-    val state = TypstState()
-    print("state: $state")
 
     CompositionLocalProvider(
         LocalWindowSizeClass provides windowSizeClass,
