@@ -2,33 +2,19 @@ tasks:
   generate:
     action: !generateBindings
       coreDir: ${project.rootDir}/core
-      generatedSourceDir: ${taskOutputDir}/kotlin
-      generatedIncludeDir: ${taskOutputDir}/include
-      generatedJniLibsDir: ${taskOutputDir}/jniLibs
-      generatedJvmResourcesDir: ${taskOutputDir}/resources
-  # package:
-  #   action: !packageArtifacts
-  #     coreDir: ${project.rootDir}/core
-  #     generatedCommonSourceDir: ${taskOutputDir}/src
-  #     generatedJvmSourceDir: ${taskOutputDir}/src@jvm
-  #     generatedJvmResourcesDir: ${taskOutputDir}/resources@jvm
-  #     generatedAndroidSourceDir: ${taskOutputDir}/src@android
+      generatedCommonSourceDir: ${project.rootDir}/app/shared/src/core
+      generatedJvmSourceDir: ${project.rootDir}/app/shared/src@jvm/core
+      generatedJvmResourcesDir: ${project.rootDir}/app/shared/resources@jvm/core
+      generatedAndroidSourceDir: ${project.rootDir}/app/shared/src@android/core
 
 generated:
   sources:
     - language: kotlin
-      directory: ${tasks.generate.action.generatedSourceDir}
+      directory: ${tasks.generate.action.generatedCommonSourceDir}
+  #   - language: kotlin
+  #     directory: ${tasks.generate.action.generatedJvmSourceDir}
+  #   - language: kotlin
+  #     directory: ${tasks.generate.action.generatedAndroidSourceDir}
 
-  # sources:
-  #   - language: kotlin
-  #     directory: ${tasks.package.action.generatedCommonSourceDir}
-  #   - language: kotlin
-  #     directory: ${tasks.package.action.generatedJvmSourceDir}
-  #   - language: kotlin
-  #     directory: ${tasks.package.action.generatedAndroidSourceDir}
-
-  resources:
-    - directory: ${tasks.generate.action.generatedIncludeDir}
-    - directory: ${tasks.generate.action.generatedJniLibsDir}
-    - directory: ${tasks.generate.action.generatedJvmResourcesDir}
-    # - directory: ${tasks.package.action.generatedJvmResourcesDir}
+  # resources:
+  #   - directory: ${tasks.generate.action.generatedJvmResourcesDir}

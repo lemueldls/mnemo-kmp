@@ -2,8 +2,6 @@ use std::{collections::VecDeque, hash::BuildHasher, ops::Range};
 
 use comemo::Prehashed;
 use rustc_hash::FxBuildHasher;
-use serde::{Deserialize, Serialize};
-use tsify::Tsify;
 use typst::layout::{Abs, Frame, Point, Size};
 use typst_svg::svg_frame;
 use typst_syntax::FileId;
@@ -14,8 +12,8 @@ use crate::editor::{
         RenderTarget,
         paged::{PagedRender, items::chunk_by_items},
     },
-    state::TypstState,
-    wrappers::TypstDiagnostic,
+    state::EditorState,
+    wrappers::EditorDiagnostic,
 };
 
 /// Renders SVG frames for each chunked item in a Typst document.
@@ -24,7 +22,7 @@ pub fn render_svgs_by_items(
     id: &FileId,
     text: &str,
     prelude: &str,
-    state: &mut TypstState,
+    state: &mut EditorState,
 ) -> SvgRender {
     let PagedRender {
         chunks,
@@ -174,7 +172,7 @@ pub struct SvgRender {
     /// Rendered SVG frames for tooltips.
     pub tooltips: Vec<SvgRangedFrame>,
     /// Diagnostics and warnings produced during rendering.
-    pub diagnostics: Vec<TypstDiagnostic>,
+    pub diagnostics: Vec<EditorDiagnostic>,
 }
 
 /// An SVG frame with its corresponding source range.
@@ -188,7 +186,8 @@ pub struct SvgRangedFrame {
 }
 
 impl SvgRangedFrame {
-    pub fn new(range: Range<usize>, render: SvgFrameRender) -> Self {
+    #[must_use]
+    pub const fn new(range: Range<usize>, render: SvgFrameRender) -> Self {
         Self { range, render }
     }
 }

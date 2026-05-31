@@ -1,12 +1,12 @@
-// pub mod blocks;
 pub mod items;
+pub mod pdf;
 pub mod svg;
 
 use std::{collections::VecDeque, hash::Hash, ops::Range};
 
 use typst::layout::{FrameItem, PagedDocument, Point, Rect};
 
-use crate::editor::{state::SourceContext, wrappers::TypstDiagnostic};
+use crate::editor::wrappers::EditorDiagnostic;
 
 /// Result of paged rendering, containing chunks, diagnostics, and document context.
 #[derive(Debug)]
@@ -16,7 +16,7 @@ pub struct PagedRender {
     /// Tooltips for the rendered content.
     pub tooltips: Vec<FrameItemsChunk>,
     /// Diagnostics and warnings produced during rendering.
-    pub diagnostics: Vec<TypstDiagnostic>,
+    pub diagnostics: Vec<EditorDiagnostic>,
     /// The paged Typst document, if available.
     pub document: Option<PagedDocument>,
 }

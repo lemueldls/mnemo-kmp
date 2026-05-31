@@ -37,7 +37,7 @@ pub struct Writer<'a> {
 
 impl<'a> Writer<'a> {
     /// Creates a new writer.
-    pub fn new(introspector: &'a Introspector, pretty: bool) -> Self {
+    pub const fn new(introspector: &'a Introspector, pretty: bool) -> Self {
         Self {
             buf: String::new(),
             level: 0,
@@ -341,7 +341,7 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
         '"' => w.buf.push_str("&quot;"),
         '\'' => w.buf.push_str("&apos;"),
         c if charsets::is_w3c_text_char(c) && c != '\r' => {
-            write!(w.buf, "&#x{:x};", c as u32).unwrap()
+            write!(w.buf, "&#x{:x};", c as u32).unwrap();
         }
         _ => return Err(unencodable(c)),
     }

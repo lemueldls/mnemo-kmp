@@ -6,6 +6,7 @@ use typst::{
     ecow::{EcoVec, eco_format},
     syntax::{FileId, Span, Spanned, SyntaxError},
 };
+use typst_ide::{CompletionKind, Jump};
 
 use super::{state::SourceContext, world::MnemoWorld};
 
@@ -16,34 +17,21 @@ boltffi::custom_type! {
     into_ffi = |id: &FileId| id.into_raw().get(),
     try_from_ffi = |s| {
         NonZeroU16::new(s)
-            .ok_or_else(|| boltffi::CustomTypeConversionError)
-            .map(|nz| FileId::from_raw(nz))
-     },
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct TypstFileId(pub(crate) FileId);
-
-impl TypstFileId {
-    pub fn new(id: FileId) -> Self {
-        Self(id)
-    }
-
-    pub fn inner(&self) -> FileId {
-        self.0
-    }
+            .ok_or(boltffi::CustomTypeConversionError)
+            .map(FileId::from_raw)
+    },
 }
 
 #[derive(Debug)]
 #[boltffi::data]
-pub struct TypstDiagnostic {
+pub struct EditorDiagnostic {
     pub range: Range<usize>,
-    pub severity: TypstDiagnosticSeverity,
+    pub severity: EditorDiagnosticSeverity,
     pub message: String,
     pub hints: Vec<String>,
 }
 
-impl TypstDiagnostic {
+impl EditorDiagnostic {
     pub fn from_errors(
         errors: EcoVec<SyntaxError>,
         context: &SourceContext,
@@ -51,10 +39,10 @@ impl TypstDiagnostic {
     ) -> Box<[Self]> {
         errors
             .into_iter()
-            .flat_map(|error| {
-                map_aux_span(error.span, true, &[], context, world).map(|range| TypstDiagnostic {
+            .filter_map(|error| {
+                map_aux_span(error.span, true, &[], context, world).map(|range| EditorDiagnostic {
                     range,
-                    severity: TypstDiagnosticSeverity::Error,
+                    severity: EditorDiagnosticSeverity::Error,
                     message: error.message.to_string(),
                     hints: error.hints.into_iter().map(|s| s.to_string()).collect(),
                 })
@@ -69,7 +57,7 @@ impl TypstDiagnostic {
     ) -> Box<[Self]> {
         diagnostics
             .into_iter()
-            .flat_map(|mut diagnostic| {
+            .filter_map(|mut diagnostic| {
                 if diagnostic.message == "failed to load file" {
                     let source = world.source(diagnostic.span.id().unwrap()).unwrap();
                     let text = source
@@ -87,9 +75,9 @@ impl TypstDiagnostic {
                     context,
                     world,
                 )
-                .map(|range| TypstDiagnostic {
+                .map(|range| EditorDiagnostic {
                     range,
-                    severity: TypstDiagnosticSeverity::from_severity(diagnostic.severity),
+                    severity: EditorDiagnosticSeverity::from_severity(diagnostic.severity),
                     message: diagnostic.message.to_string(),
                     hints: diagnostic
                         .hints
@@ -124,7 +112,7 @@ pub fn map_main_span(
             if main_range.is_some() {
                 break;
             } else if Some(context.main_id) == tracepoint.span.id() {
-                main_range = world.range(tracepoint.span)
+                main_range = world.range(tracepoint.span);
             }
         }
     }
@@ -139,7 +127,7 @@ pub fn map_aux_span(
     context: &SourceContext,
     world: &MnemoWorld,
 ) -> Option<Range<usize>> {
-    let aux_source = context.aux_source(&world)?;
+    let aux_source = context.aux_source(world)?;
 
     let main_range = map_main_span(span, is_error, trace, context, world);
 
@@ -166,15 +154,16 @@ pub fn map_aux_span(
 
 #[derive(Debug, Clone)]
 #[boltffi::data]
-pub enum TypstDiagnosticSeverity {
+pub enum EditorDiagnosticSeverity {
     Error,
     Warning,
     Info,
     Hint,
 }
 
-impl TypstDiagnosticSeverity {
-    pub fn from_severity(severity: Severity) -> Self {
+impl EditorDiagnosticSeverity {
+    #[must_use]
+    pub const fn from_severity(severity: Severity) -> Self {
         match severity {
             Severity::Error => Self::Error,
             Severity::Warning => Self::Warning,
@@ -183,13 +172,13 @@ impl TypstDiagnosticSeverity {
 }
 
 #[boltffi::data]
-pub struct TypstHighlight {
+pub struct EditorHighlight {
     pub tag: String,
     pub range: Range<usize>,
 }
 
 #[boltffi::data]
-pub enum TypstJump {
+pub enum EditorJump {
     File {
         // id: u64,
         offset: usize,
@@ -198,19 +187,15 @@ pub enum TypstJump {
     // Position(Position),
 }
 
-impl TypstJump {
-    pub fn from_mapped(
-        jump: typst_ide::Jump,
-        context: &SourceContext,
-        world: &MnemoWorld,
-    ) -> Option<Self> {
+impl EditorJump {
+    pub fn from_mapped(jump: Jump, context: &SourceContext, world: &MnemoWorld) -> Option<Self> {
         match jump {
-            typst_ide::Jump::File(id, main_position) => {
+            Jump::File(id, main_position) => {
                 if id != context.main_id {
                     return None;
                 }
 
-                let aux_source = context.aux_source(&world)?;
+                let aux_source = context.aux_source(world)?;
                 let aux_position = context.map_main_to_aux_from_right(main_position);
                 let aux_position_utf16 = aux_source.lines().byte_to_utf16(aux_position)?;
 
@@ -219,15 +204,15 @@ impl TypstJump {
                     offset: aux_position_utf16,
                 })
             }
-            typst_ide::Jump::Url(..) => None,
-            typst_ide::Jump::Position(..) => None,
+            Jump::Url(..) => None,
+            Jump::Position(..) => None,
         }
     }
 }
 
 #[derive(Clone, Copy)]
 #[boltffi::data]
-pub enum TypstCompletionKind {
+pub enum EditorCompletionKind {
     Syntax,
     Func,
     Type,
@@ -241,27 +226,27 @@ pub enum TypstCompletionKind {
 }
 
 #[boltffi::data]
-pub struct TypstCompletion {
-    kind: TypstCompletionKind,
+pub struct EditorCompletion {
+    kind: EditorCompletionKind,
     label: String,
     apply: Option<String>,
     detail: Option<String>,
 }
 
-impl From<typst_ide::Completion> for TypstCompletion {
+impl From<typst_ide::Completion> for EditorCompletion {
     fn from(value: typst_ide::Completion) -> Self {
         Self {
             kind: match value.kind {
-                typst_ide::CompletionKind::Syntax => TypstCompletionKind::Syntax,
-                typst_ide::CompletionKind::Func => TypstCompletionKind::Func,
-                typst_ide::CompletionKind::Type => TypstCompletionKind::Type,
-                typst_ide::CompletionKind::Param => TypstCompletionKind::Param,
-                typst_ide::CompletionKind::Constant => TypstCompletionKind::Constant,
-                typst_ide::CompletionKind::Path => TypstCompletionKind::Path,
-                typst_ide::CompletionKind::Package => TypstCompletionKind::Package,
-                typst_ide::CompletionKind::Label => TypstCompletionKind::Label,
-                typst_ide::CompletionKind::Font => TypstCompletionKind::Font,
-                typst_ide::CompletionKind::Symbol(_) => TypstCompletionKind::Symbol,
+                CompletionKind::Syntax => EditorCompletionKind::Syntax,
+                CompletionKind::Func => EditorCompletionKind::Func,
+                CompletionKind::Type => EditorCompletionKind::Type,
+                CompletionKind::Param => EditorCompletionKind::Param,
+                CompletionKind::Constant => EditorCompletionKind::Constant,
+                CompletionKind::Path => EditorCompletionKind::Path,
+                CompletionKind::Package => EditorCompletionKind::Package,
+                CompletionKind::Label => EditorCompletionKind::Label,
+                CompletionKind::Font => EditorCompletionKind::Font,
+                CompletionKind::Symbol(_) => EditorCompletionKind::Symbol,
             },
             label: value.label.to_string(),
             apply: value.apply.map(|s| s.to_string()),

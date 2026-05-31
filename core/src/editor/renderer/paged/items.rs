@@ -14,9 +14,9 @@ use crate::editor::{
         paged::{BoundFrameItem, FrameItemsChunk, PagedRender},
         remove_errornous_block, sync_source_context, try_mark_errornous,
     },
-    state::{SourceContext, TypstState},
+    state::{SourceContext, EditorState},
     world::MnemoWorld,
-    wrappers::TypstDiagnostic,
+    wrappers::EditorDiagnostic,
 };
 
 /// Chunks a Typst document into renderable blocks by frame items, handling diagnostics and error divergence.
@@ -26,7 +26,7 @@ pub fn chunk_by_items(
     text: &str,
     prelude: &str,
     render_target: RenderTarget,
-    state: &mut TypstState,
+    state: &mut EditorState,
 ) -> PagedRender {
     let prelude = state.prelude(id, render_target) + prelude + "\n";
     let context = state.source_context_map.get_mut(id).unwrap();
@@ -78,10 +78,10 @@ pub fn chunk_by_items_with_ast_blocks(
                 let mut bound_frame_items = bound_frame_items.into_iter().peekable();
 
                 let mut chunks = Vec::with_capacity(ast_blocks.len());
-                let mut ast_blocks = ast_blocks.iter().peekable();
+                let ast_blocks = ast_blocks.iter().peekable();
                 let mut remaining_items = Vec::<BoundFrameItem>::new();
 
-                while let Some(ast_block) = ast_blocks.next() {
+                for ast_block in ast_blocks {
                     let aux_source = context.aux_source(world).unwrap();
 
                     let aux_range = &ast_block.range;
@@ -161,7 +161,7 @@ pub fn chunk_by_items_with_ast_blocks(
                         }
                     }
 
-                    remaining_items.extend(deferred_items.drain(..));
+                    remaining_items.append(&mut deferred_items);
 
                     // crate::log!("start width: {block_start_width}");
                     // crate::log!("end width: {block_end_width}");
@@ -212,7 +212,7 @@ pub fn chunk_by_items_with_ast_blocks(
                     break;
                 }
 
-                diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                diagnostics.extend(EditorDiagnostic::from_diagnostics(
                     source_diagnostics.clone(),
                     context,
                     world,
@@ -271,16 +271,15 @@ pub fn chunk_by_items_with_ast_blocks(
                 }
 
                 let indicies =
-                    remove_errornous_block(&ast_blocks, source_diagnostics, context, world);
+                    remove_errornous_block(ast_blocks, source_diagnostics, context, world);
 
                 if indicies.is_empty() {
                     crate::error!("NO ERROR BLOCKS FOUND ‼️");
 
                     break;
-                } else {
-                    for idx in indicies.iter().rev() {
-                        ast_blocks.remove(*idx);
-                    }
+                }
+                for idx in indicies.iter().rev() {
+                    ast_blocks.remove(*idx);
                 }
 
                 (Vec::new(), Vec::new(), None)
@@ -289,7 +288,7 @@ pub fn chunk_by_items_with_ast_blocks(
     }
 
     if let Some(warnings) = compiled_warnings {
-        diagnostics.extend(TypstDiagnostic::from_diagnostics(warnings, &context, world));
+        diagnostics.extend(EditorDiagnostic::from_diagnostics(warnings, context, world));
     }
 
     // context.main_source_mut(world).unwrap().replace(&ir);
@@ -313,18 +312,15 @@ pub fn chunk_by_items_with_ast_blocks(
                     _ => block_end_height = Some(block.bounds.max.y),
                 }
 
-                match block.item {
-                    FrameItem::Tag(..) => {}
-                    _ => {
-                        match block_start_width {
-                            Some(width) if width < block.bounds.min.x => {}
-                            _ => block_start_width = Some(block.bounds.min.x),
-                        }
+                if let FrameItem::Tag(..) = block.item {} else {
+                    match block_start_width {
+                        Some(width) if width < block.bounds.min.x => {}
+                        _ => block_start_width = Some(block.bounds.min.x),
+                    }
 
-                        match block_end_width {
-                            Some(width) if width > block.bounds.max.x => {}
-                            _ => block_end_width = Some(block.bounds.max.x),
-                        }
+                    match block_end_width {
+                        Some(width) if width > block.bounds.max.x => {}
+                        _ => block_end_width = Some(block.bounds.max.x),
                     }
                 }
             }
@@ -463,7 +459,7 @@ fn bound_frame(
                 range,
                 bounds,
                 item: item.clone(),
-                point: point.clone(),
+                point: *point,
             };
 
             if let Some(point) = parent_point {
@@ -494,7 +490,7 @@ fn bound_frame(
         range,
         bounds,
         item: item.clone(),
-        point: point.clone(),
+        point: *point,
     };
 
     if let Some(point) = parent_point {
@@ -521,13 +517,10 @@ struct BoundFrameSink {
 impl BoundFrameSink {
     pub fn process_tooltips(&mut self, block: &BoundFrameItem) {
         if let Some((name, _span)) = self.tag_stack.last() {
-            match *name {
-                "equation" => {
-                    let mut block = block.clone();
-                    block.range = block.range.map(|range| (range.start)..(range.end));
-                    self.tooltips.last_mut().unwrap().push(block);
-                }
-                _ => {}
+            if *name == "equation" {
+                let mut block = block.clone();
+                block.range = block.range;
+                self.tooltips.last_mut().unwrap().push(block);
             }
         }
     }
@@ -576,9 +569,7 @@ fn frame_item_range(
 
                     // crate::log!("[START FLAGS]: {flags:?} {name}");
 
-                    match name {
-                        _ => return None,
-                    }
+                    return None
                 }
                 Tag::End(_location, _key, flags) => {
                     if flags.introspectable

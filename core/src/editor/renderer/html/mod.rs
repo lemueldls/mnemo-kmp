@@ -5,33 +5,26 @@ pub mod writer;
 
 use std::{
     cmp,
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{BuildHasher, Hash},
     iter,
     ops::Range,
 };
 
 use ecow::eco_vec;
 use rustc_hash::{FxBuildHasher, FxHashSet};
-use serde::{Deserialize, Serialize};
-use tsify::Tsify;
 use typst::{compile, diag::Severity, introspection::Tag, syntax::Span};
-// use ecow::{EcoString, eco_format};
-// use typst_library::diag::{At, SourceResult, StrResult, bail};
-// use typst_library::foundations::Repr;
-// use typst_library::introspection::Introspector;
-// use typst_syntax::Span;
 use typst_html::{HtmlDocument, HtmlElement, HtmlNode};
 use typst_syntax::FileId;
 use writer::{Writer, write_node};
 
 use crate::editor::{
     renderer::{RenderTarget, sync_source_state},
-    state::{SourceContext, TypstState},
+    state::{EditorState, SourceContext},
     world::MnemoWorld,
-    wrappers::{TypstDiagnostic, map_main_span},
+    wrappers::{EditorDiagnostic, map_main_span},
 };
 
-pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut TypstState) -> HTMLRenderResult {
+pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -> HTMLRenderResult {
     let (ir, ast_blocks) = sync_source_state(id, text, prelude, RenderTarget::Html, state);
 
     let mut last_document = None;
@@ -80,7 +73,7 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut TypstState) ->
                         let location = match &node {
                             HtmlNode::Tag(tag) => match tag {
                                 Tag::Start(content, ..) => content.location(),
-                                Tag::End(location, ..) => Some(location.clone()),
+                                Tag::End(location, ..) => Some(*location),
                             },
                             HtmlNode::Text(..) => None,
                             HtmlNode::Element(element) => element.parent,
@@ -101,8 +94,6 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut TypstState) ->
                 let blocks = children
                     .filter_map(|(node, range, _position)| {
                         let mut w = Writer::new(&document.introspector, false);
-
-                        let mut hasher = FxBuildHasher::default().build_hasher();
 
                         let aux_source = context.aux_source(&state.world).unwrap();
 
@@ -139,18 +130,17 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut TypstState) ->
                         let aux_range_utf16 = aux_start_utf16..aux_end_utf16;
 
                         write_node(&mut w, &node, body.pre_span).unwrap();
-                        node.hash(&mut hasher);
 
-                        if !w.buf.is_empty() {
+                        if w.buf.is_empty() {
+                            None
+                        } else {
                             Some(HTMLRangedFrame {
                                 render: HTMLFrameRender {
                                     html: w.buf,
-                                    hash: hasher.finish() as u32,
+                                    hash: FxBuildHasher.hash_one(&node) as u32,
                                 },
-                                range: aux_range_utf16.clone(),
+                                range: aux_range_utf16,
                             })
-                        } else {
-                            None
                         }
                     })
                     .collect::<Vec<_>>();
@@ -167,7 +157,7 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut TypstState) ->
                             diagnostic.span,
                             diagnostic.severity == Severity::Error,
                             &diagnostic.trace,
-                            &context,
+                            context,
                             &state.world,
                         )
                     })
@@ -209,9 +199,9 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut TypstState) ->
                     end_byte += 12;
                 }
 
-                diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                diagnostics.extend(EditorDiagnostic::from_diagnostics(
                     source_diagnostics,
-                    &context,
+                    context,
                     &state.world,
                 ));
 
@@ -230,9 +220,9 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut TypstState) ->
     crate::debug!("FRAMES: {frames:?}");
 
     if let Some(warnings) = compiled_warnings {
-        diagnostics.extend(TypstDiagnostic::from_diagnostics(
+        diagnostics.extend(EditorDiagnostic::from_diagnostics(
             warnings,
-            &context,
+            context,
             &state.world,
         ));
     }
@@ -362,7 +352,7 @@ fn flat_node_range(
 // #[boltffi::data]
 pub struct HTMLRenderResult {
     pub frames: Vec<HTMLRangedFrame>,
-    pub diagnostics: Vec<TypstDiagnostic>,
+    pub diagnostics: Vec<EditorDiagnostic>,
 }
 
 #[derive(Debug)]
@@ -385,5 +375,5 @@ pub struct RenderHtmlResult {
     /// The rendered HTML document, if successful.
     pub document: Option<String>,
     /// Diagnostics and warnings produced during rendering.
-    pub diagnostics: Vec<TypstDiagnostic>,
+    pub diagnostics: Vec<EditorDiagnostic>,
 }

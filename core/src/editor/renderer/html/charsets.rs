@@ -1,11 +1,13 @@
 //! Defines syntactical properties of HTML tags, attributes, and text.
 
 /// Check whether a character is in a tag name.
+#[must_use]
 pub const fn is_valid_in_tag_name(c: char) -> bool {
     c.is_ascii_alphanumeric()
 }
 
 /// Check whether a character is valid in an attribute name.
+#[must_use]
 pub const fn is_valid_in_attribute_name(c: char) -> bool {
     match c {
         // These are forbidden.
@@ -22,6 +24,7 @@ pub const fn is_valid_in_attribute_name(c: char) -> bool {
 /// escaping.
 ///
 /// See <https://html.spec.whatwg.org/multipage/syntax.html#attributes-2>
+#[must_use]
 pub const fn is_valid_in_attribute_value(c: char) -> bool {
     match c {
         // Ampersands are sometimes legal (i.e. when they are not _ambiguous
@@ -37,6 +40,7 @@ pub const fn is_valid_in_attribute_value(c: char) -> bool {
 
 /// Check whether a character can be an used in normal text without
 /// escaping.
+#[must_use]
 pub const fn is_valid_in_normal_element_text(c: char) -> bool {
     match c {
         // Ampersands are sometimes legal (i.e. when they are not _ambiguous
@@ -50,6 +54,7 @@ pub const fn is_valid_in_normal_element_text(c: char) -> bool {
 }
 
 /// Check if something is valid text in HTML.
+#[must_use]
 pub const fn is_w3c_text_char(c: char) -> bool {
     match c {
         // Non-characters are obviously not text characters.

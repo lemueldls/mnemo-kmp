@@ -120,6 +120,7 @@ pub const wbr: HtmlTag = HtmlTag::constant("wbr");
 
 /// Whether this is a void tag whose associated element may not have
 /// children.
+#[must_use]
 pub fn is_void(tag: HtmlTag) -> bool {
     matches!(
         tag,
@@ -140,16 +141,19 @@ pub fn is_void(tag: HtmlTag) -> bool {
 }
 
 /// Whether this is a tag containing raw text.
+#[must_use]
 pub fn is_raw(tag: HtmlTag) -> bool {
     matches!(tag, self::script | self::style)
 }
 
 /// Whether this is a tag containing escapable raw text.
+#[must_use]
 pub fn is_escapable_raw(tag: HtmlTag) -> bool {
     matches!(tag, self::textarea | self::title)
 }
 
 /// Whether an element is considered metadata.
+#[must_use]
 pub fn is_metadata(tag: HtmlTag) -> bool {
     matches!(
         tag,
@@ -166,6 +170,7 @@ pub fn is_metadata(tag: HtmlTag) -> bool {
 
 /// Whether nodes with the tag have the CSS property `display: block` by
 /// default.
+#[must_use]
 pub fn is_block_by_default(tag: HtmlTag) -> bool {
     matches!(
         tag,
@@ -218,6 +223,7 @@ pub fn is_block_by_default(tag: HtmlTag) -> bool {
 /// <https://www.w3.org/TR/html401/struct/global.html#block-inline>
 /// <https://developer.mozilla.org/en-US/docs/Glossary/Inline-level_content>
 /// <https://github.com/orgs/mdn/discussions/353>
+#[must_use]
 pub fn is_inline_by_default(tag: HtmlTag) -> bool {
     matches!(
         tag,
@@ -254,6 +260,7 @@ pub fn is_inline_by_default(tag: HtmlTag) -> bool {
 
 /// Whether nodes with the tag have the CSS property `display: table(-.*)?`
 /// by default.
+#[must_use]
 pub fn is_tabular_by_default(tag: HtmlTag) -> bool {
     matches!(
         tag,

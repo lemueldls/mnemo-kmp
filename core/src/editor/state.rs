@@ -9,12 +9,9 @@ use std::{
 use ecow::EcoVec;
 use indoc::formatdoc;
 use rustc_hash::FxHashMap;
-use serde::{Deserialize, Serialize};
 use tar::Archive;
-use tsify::Tsify;
 use typst::{
     compile,
-    ecow::EcoString,
     foundations::Bytes,
     introspection::HtmlPosition,
     layout::{Abs, PagedDocument, Point, Position},
@@ -22,27 +19,26 @@ use typst::{
 };
 use typst_html::HtmlDocument;
 use typst_ide::Tooltip;
-// use typst_html::html;
-// use typst_pdf::{PdfOptions, pdf};
 use typst_syntax::{LinkedNode, Side, Tag};
+
+use crate::editor::renderer::paged::pdf::{RenderPdfResult, render_pdf};
 
 use super::{
     index_mapper::IndexMapper,
     renderer::{
         RenderTarget,
-        html::{self, RenderHtmlResult},
         paged::svg::{SvgRangedFrame, render_svgs_by_items},
-        remove_errornous_block, sync_source_context, sync_source_state,
+        sync_source_state,
     },
     world::MnemoWorld,
-    wrappers::{TypstCompletion, TypstDiagnostic, TypstHighlight, TypstJump},
+    wrappers::{EditorCompletion, EditorDiagnostic, EditorHighlight, EditorJump},
 };
 
 /// Global state for Typst rendering and compilation in Mnemo.
 ///
 /// Holds the world, all open source and space contexts, and manages the mapping between user/editor state and Typst's compilation model.
 #[derive(Default)]
-pub struct TypstState {
+pub struct EditorState {
     /// The Typst world, containing all loaded files and fonts.
     pub(crate) world: MnemoWorld,
     /// Mapping from space IDs to their context (fonts, theme, locale).
@@ -52,7 +48,8 @@ pub struct TypstState {
 }
 
 #[boltffi::export(single_threaded)]
-impl TypstState {
+impl EditorState {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -77,8 +74,8 @@ impl TypstState {
         self.get_space_context_mut(id).locale = locale;
     }
 
-    pub fn create_source_id(&mut self, path: String, space_id: String) -> FileId {
-        let id = FileId::new(None, VirtualPath::new(&path).with_extension("typ"));
+    pub fn create_source_id(&mut self, path: &str, space_id: String) -> FileId {
+        let id = FileId::new(None, VirtualPath::new(path).with_extension("typ"));
 
         let source_ctx = SourceContext::new(id, space_id.clone());
         self.world.insert_source(source_ctx.aux_id, String::new());
@@ -90,8 +87,8 @@ impl TypstState {
         id
     }
 
-    pub fn create_file_id(&mut self, path: String) -> FileId {
-        FileId::new(None, VirtualPath::new(&path))
+    pub fn create_file_id(&mut self, path: &str) -> FileId {
+        FileId::new(None, VirtualPath::new(path))
     }
 
     pub fn insert_source(&mut self, id: FileId, text: String) {
@@ -107,6 +104,11 @@ impl TypstState {
         self.world.remove_source(&id);
     }
 
+    /// Installs a package from a gzipped tarball, extracting its contents and inserting them into the world.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the provided data is not a valid gzipped tarball or if any file within the archive cannot be read.
     pub fn install_package(&mut self, spec: &str, data: Vec<u8>) -> Result<(), String> {
         let package_spec = Some(PackageSpec::from_str(spec).map_err(|e| e.to_string())?);
 
@@ -136,21 +138,21 @@ impl TypstState {
         self.world.install_font(bytes);
     }
 
-    fn process_requests(&self) -> Vec<TypstRequest> {
+    fn process_requests(&self) -> Vec<EditorRequest> {
         let mut requests = Vec::new();
 
         for source in self.world.requested_sources.iter() {
-            requests.push(TypstRequest::Source(source.as_rooted_path().to_path_buf()));
+            requests.push(EditorRequest::Source(source.as_rooted_path().to_path_buf()));
         }
         self.world.requested_sources.clear();
 
         for file in self.world.requested_files.iter() {
-            requests.push(TypstRequest::File(file.as_rooted_path().to_path_buf()));
+            requests.push(EditorRequest::File(file.as_rooted_path().to_path_buf()));
         }
         self.world.requested_files.clear();
 
         for package in self.world.requested_packages.iter() {
-            requests.push(TypstRequest::Package {
+            requests.push(EditorRequest::Package {
                 namespace: package.namespace.to_string(),
                 name: package.name.to_string(),
                 version: package.version.to_string(),
@@ -182,6 +184,11 @@ impl TypstState {
     //     }
     // }
 
+    /// Checks the given source for errors and warnings, updating the cached document if successful.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the provided `id` does not exist in `source_context_map` or if the main source cannot be accessed.
     pub fn check_paged(&mut self, id: &FileId, text: &str, prelude: &str) -> CheckResult {
         let (ir, _) = sync_source_state(id, text, prelude, RenderTarget::Svg, self);
 
@@ -197,9 +204,9 @@ impl TypstState {
         let mut diagnostics = Vec::new();
 
         if let Some(warnings) = compiled_warnings {
-            diagnostics.extend(TypstDiagnostic::from_diagnostics(
+            diagnostics.extend(EditorDiagnostic::from_diagnostics(
                 warnings,
-                &context,
+                context,
                 &self.world,
             ));
         }
@@ -209,9 +216,9 @@ impl TypstState {
                 context.paged_document = Some(document);
             }
             Err(source_diagnostics) => {
-                diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                diagnostics.extend(EditorDiagnostic::from_diagnostics(
                     source_diagnostics,
-                    &context,
+                    context,
                     &self.world,
                 ));
             }
@@ -238,9 +245,9 @@ impl TypstState {
         let mut diagnostics = Vec::new();
 
         if let Some(warnings) = compiled_warnings {
-            diagnostics.extend(TypstDiagnostic::from_diagnostics(
+            diagnostics.extend(EditorDiagnostic::from_diagnostics(
                 warnings,
-                &context,
+                context,
                 &self.world,
             ));
         }
@@ -250,9 +257,9 @@ impl TypstState {
                 context.html_document = Some(document);
             }
             Err(source_diagnostics) => {
-                diagnostics.extend(TypstDiagnostic::from_diagnostics(
+                diagnostics.extend(EditorDiagnostic::from_diagnostics(
                     source_diagnostics,
-                    &context,
+                    context,
                     &self.world,
                 ));
             }
@@ -264,7 +271,7 @@ impl TypstState {
         }
     }
 
-    pub fn highlight(&mut self, id: &FileId, text: &str) -> Vec<TypstHighlight> {
+    pub fn highlight(&mut self, id: &FileId, text: &str) -> Vec<EditorHighlight> {
         let Some(context) = self.source_context_map.get(id) else {
             return Vec::new();
         };
@@ -280,8 +287,7 @@ impl TypstState {
 
         let aux_lines = aux_source.lines();
 
-        while queue.len() > 0 {
-            let curr = queue.pop().unwrap();
+        while let Some(curr) = queue.pop() {
             let tag = typst_syntax::highlight(&curr);
             let range = curr.range();
 
@@ -292,22 +298,19 @@ impl TypstState {
 
                 let mut css_class = tag.css_class().to_string();
 
-                match tag {
-                    Tag::Heading => {
-                        let node = curr.get();
+                if tag == Tag::Heading {
+                    let node = curr.get();
 
-                        let Some(marker_node) = node.children().next() else {
-                            unreachable!()
-                        };
-                        let level = marker_node.text().len();
+                    let Some(marker_node) = node.children().next() else {
+                        unreachable!()
+                    };
+                    let level = marker_node.text().len();
 
-                        css_class += " typ-heading-level-";
-                        css_class += level.to_string().as_str();
-                    }
-                    _ => {}
+                    css_class += " typ-heading-level-";
+                    css_class += level.to_string().as_str();
                 }
 
-                Some(TypstHighlight {
+                Some(EditorHighlight {
                     tag: css_class,
                     range: aux_range_utf16,
                 })
@@ -315,7 +318,7 @@ impl TypstState {
 
             if let Some(highlight) = highlight {
                 let idx = highlights
-                    .binary_search_by_key(&highlight.range.start, |highlight: &TypstHighlight| {
+                    .binary_search_by_key(&highlight.range.start, |highlight: &EditorHighlight| {
                         highlight.range.start
                     });
 
@@ -332,7 +335,7 @@ impl TypstState {
         highlights
     }
 
-    pub fn jump_paged(&mut self, id: &FileId, x: f64, mut y: f64) -> Option<TypstJump> {
+    pub fn jump_paged(&mut self, id: &FileId, x: f64, mut y: f64) -> Option<EditorJump> {
         let context = self.source_context_map.get(id)?;
         let document = context.paged_document.as_ref()?;
 
@@ -356,10 +359,10 @@ impl TypstState {
         };
 
         typst_ide::jump_from_click(&self.world, document, &position)
-            .and_then(|jump| TypstJump::from_mapped(jump, context, &self.world))
+            .and_then(|jump| EditorJump::from_mapped(jump, context, &self.world))
     }
 
-    pub fn jump_html(&mut self, id: &FileId, element: Vec<usize>) -> Option<TypstJump> {
+    pub fn jump_html(&mut self, id: &FileId, element: Vec<usize>) -> Option<EditorJump> {
         let context = self.source_context_map.get(id)?;
         let document = context.html_document.as_ref()?;
 
@@ -368,7 +371,7 @@ impl TypstState {
             document,
             &HtmlPosition::new(EcoVec::from(element)),
         )
-        .and_then(|jump| TypstJump::from_mapped(jump, context, &self.world))
+        .and_then(|jump| EditorJump::from_mapped(jump, context, &self.world))
     }
 
     pub fn autocomplete(
@@ -406,7 +409,7 @@ impl TypstState {
             offset: aux_offset_utf16,
             completions: completions
                 .into_iter()
-                .map(TypstCompletion::from)
+                .map(EditorCompletion::from)
                 .collect::<Vec<_>>(),
         })
     }
@@ -444,9 +447,7 @@ impl TypstState {
     pub fn resize(&mut self, id: &FileId, width: Option<f64>, height: Option<f64>) -> bool {
         let context = self.source_context_map.get_mut(id).unwrap();
 
-        let width = width
-            .map(|width| width.to_string() + "pt")
-            .unwrap_or_else(|| String::from("auto"));
+        let width = width.map_or_else(|| String::from("auto"), |width| width.to_string() + "pt");
         let width_changed = context.width != width;
 
         context.width = width;
@@ -455,53 +456,9 @@ impl TypstState {
         width_changed
     }
 
-    // pub fn render_pdf(&mut self, id: &FileId) -> RenderPdfResult {
-    //     self.world.main_id = Some(id);
-
-    //     let mut ir = self.prelude(id, RenderTarget::Pdf);
-
-    //     let context = self.source_context_map.get_mut(id).unwrap();
-    //     let main_source = context.main_source_mut(&mut self.world).unwrap();
-    //     let text = main_source.text().to_string();
-    //     ir += &text;
-
-    //     main_source.replace(&ir);
-
-    //     self.world.insert_source(context.aux_id, text);
-    //     self.world.aux_id = Some(context.aux_id);
-
-    //     let compiled = compile(&self.world);
-    //     let mut diagnostics =
-    //         TypstDiagnostic::from_diagnostics(compiled.warnings, &context, &self.world).into_vec();
-
-    //     let bytes = match compiled.output {
-    //         Ok(document) => {
-    //             match pdf(&document, &PdfOptions::default()) {
-    //                 Ok(pdf) => Some(pdf),
-    //                 Err(source_diagnostics) => {
-    //                     diagnostics.extend(TypstDiagnostic::from_diagnostics(
-    //                         source_diagnostics,
-    //                         &context,
-    //                         &self.world,
-    //                     ));
-
-    //                     None
-    //                 }
-    //             }
-    //         }
-    //         Err(source_diagnostics) => {
-    //             diagnostics.extend(TypstDiagnostic::from_diagnostics(
-    //                 source_diagnostics,
-    //                 &context,
-    //                 &self.world,
-    //             ));
-
-    //             None
-    //         }
-    //     };
-
-    //     RenderPdfResult { bytes, diagnostics }
-    // }
+    pub fn render_pdf(&mut self, id: &FileId) -> RenderPdfResult {
+        render_pdf(id, self)
+    }
 
     // pub fn render_html(&mut self, id: &FileId, text: &str, prelude: &str) -> RenderHtmlResult {
     //     let (ir, ast_blocks) = sync_source_state(id, text, prelude, RenderTarget::Html, self);
@@ -534,7 +491,7 @@ impl TypstState {
 
     //                         diagnostics.extend(TypstDiagnostic::from_diagnostics(
     //                             source_diagnostics,
-    //                             &context,
+    //                             context,
     //                             &self.world,
     //                         ));
 
@@ -579,7 +536,7 @@ impl TypstState {
     //     if let Some(warnings) = compiled_warnings {
     //         diagnostics.extend(TypstDiagnostic::from_diagnostics(
     //             warnings,
-    //             &context,
+    //             context,
     //             &self.world,
     //         ));
     //     }
@@ -591,12 +548,12 @@ impl TypstState {
     // }
 }
 
-impl TypstState {
-    pub fn world(&self) -> &MnemoWorld {
+impl EditorState {
+    pub const fn world(&self) -> &MnemoWorld {
         &self.world
     }
 
-    pub fn world_mut(&mut self) -> &mut MnemoWorld {
+    pub const fn world_mut(&mut self) -> &mut MnemoWorld {
         &mut self.world
     }
 
@@ -610,21 +567,18 @@ impl TypstState {
 
     pub fn get_space_context(&self, id: &FileId) -> &SpaceContext {
         let space_id = &self.get_source_context(id).space_id;
-        let space_ctx = self.space_context_map.get(space_id).unwrap();
-
-        space_ctx
+        self.space_context_map.get(space_id).unwrap()
     }
 
     pub fn get_space_context_mut(&mut self, id: &FileId) -> &mut SpaceContext {
         let space_id = self.get_source_context(id).space_id.clone();
-        let space_ctx = self.space_context_map.get_mut(&space_id).unwrap();
-
-        space_ctx
+        self.space_context_map.get_mut(&space_id).unwrap()
     }
 }
 
 #[comemo::track]
-impl TypstState {
+impl EditorState {
+    #[allow(clippy::needless_raw_string_hashes)]
     pub fn prelude(&self, id: &FileId, render_target: RenderTarget) -> String {
         let source_ctx = self.source_context_map.get(id).unwrap();
         let space_ctx = self.space_context_map.get(&source_ctx.space_id).unwrap();
@@ -711,6 +665,7 @@ pub struct SpaceContext {
 }
 
 impl SpaceContext {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             font: String::from("Maple Mono"),
@@ -722,12 +677,18 @@ impl SpaceContext {
     }
 }
 
+impl Default for SpaceContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Context for a single Typst source file, tracking both main and aux sources and their mapping.
 #[derive(Debug)]
 pub struct SourceContext {
-    /// FileId of the main (intermediate/compiled) source.
+    /// `FileId` of the main (intermediate/compiled) source.
     pub main_id: FileId,
-    /// FileId of the aux (user/editor) source.
+    /// `FileId` of the aux (user/editor) source.
     pub aux_id: FileId,
     /// The space this source belongs to.
     pub space_id: String,
@@ -746,6 +707,7 @@ pub struct SourceContext {
 }
 
 impl SourceContext {
+    #[must_use]
     pub fn new(main_id: FileId, space_id: String) -> Self {
         let aux_id: FileId = main_id.with_extension("$.typ");
 
@@ -799,8 +761,8 @@ impl SourceContext {
 pub struct CompilePagedResult {
     pub frames: Vec<SvgRangedFrame>,
     pub tooltips: Vec<SvgRangedFrame>,
-    pub diagnostics: Vec<TypstDiagnostic>,
-    pub requests: Vec<TypstRequest>,
+    pub diagnostics: Vec<EditorDiagnostic>,
+    pub requests: Vec<EditorRequest>,
 }
 
 // #[boltffi::data]
@@ -812,12 +774,12 @@ pub struct CompilePagedResult {
 
 #[boltffi::data]
 pub struct CheckResult {
-    pub diagnostics: Vec<TypstDiagnostic>,
-    pub requests: Vec<TypstRequest>,
+    pub diagnostics: Vec<EditorDiagnostic>,
+    pub requests: Vec<EditorRequest>,
 }
 
 #[boltffi::data]
-pub enum TypstRequest {
+pub enum EditorRequest {
     Source(PathBuf),
     File(PathBuf),
     Package {
@@ -888,9 +850,11 @@ impl Default for ThemeColors {
     }
 }
 
-// #[boltffi::export]
+#[boltffi::export]
 impl ThemeColors {
-    pub fn new(
+    #[must_use]
+    #[allow(clippy::too_many_arguments)]
+    pub const fn new(
         background: Rgb,
         on_background: Rgb,
 
@@ -993,15 +957,17 @@ impl Rgb {
     };
 }
 
-// #[boltffi::export]
+#[boltffi::export]
 impl Rgb {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
+    #[must_use]
+    pub const fn new(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b }
     }
 
-    pub fn to_string(&self) -> String {
-        format!("rgb({},{},{})", self.r, self.g, self.b)
-    }
+    // #[must_use]
+    // pub fn to_string(&self) -> String {
+    //     format!("rgb({},{},{})", self.r, self.g, self.b)
+    // }
 }
 
 impl fmt::Display for Rgb {
@@ -1013,5 +979,5 @@ impl fmt::Display for Rgb {
 #[boltffi::data]
 pub struct Autocomplete {
     pub offset: usize,
-    pub completions: Vec<TypstCompletion>,
+    pub completions: Vec<EditorCompletion>,
 }

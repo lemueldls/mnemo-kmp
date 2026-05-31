@@ -29,7 +29,7 @@ use typst_syntax::FileId;
 
 use super::{
     index_mapper::IndexMapper,
-    state::{SourceContext, TypstState},
+    state::{EditorState, SourceContext},
     world::MnemoWorld,
     wrappers::map_main_span,
 };
@@ -60,7 +60,7 @@ pub fn sync_source_state(
     text: &str,
     prelude: &str,
     render_target: RenderTarget,
-    state: &mut TypstState,
+    state: &mut EditorState,
 ) -> (String, Vec<AstBlock>) {
     let prelude = state.prelude(id, render_target) + prelude + "\n";
     let context = state.source_context_map.get_mut(id).unwrap();
@@ -89,10 +89,10 @@ pub fn sync_source_context(
     //     .replace(&ir);
     world.main_id = Some(context.main_id);
 
-    context.aux_source_mut(world).unwrap().replace(&text);
+    context.aux_source_mut(world).unwrap().replace(text);
     world.aux_id = Some(context.aux_id);
 
-    let aux_source = context.aux_source(&world).unwrap();
+    let aux_source = context.aux_source(world).unwrap();
 
     let children = aux_source.root().children();
     let text = aux_source.text();
@@ -129,10 +129,10 @@ pub fn sync_source_context(
         }
     }
 
-    if let Some(last_block) = ast_blocks.last_mut() {
-        if in_block {
-            wrap_block(&mut ir, text, last_block, last_kind, context);
-        }
+    if let Some(last_block) = ast_blocks.last_mut()
+        && in_block
+    {
+        wrap_block(&mut ir, text, last_block, last_kind, context);
     }
 
     // crate::log!("[RANGES]: {block_ranges:?}");
@@ -173,7 +173,7 @@ fn wrap_block(
             SyntaxKind::ListItem | SyntaxKind::EnumItem | SyntaxKind::TermItem | SyntaxKind::Label,
         ) => {
             *ir += &text[last_block.range.clone()];
-            last_block.is_inline = true
+            last_block.is_inline = true;
         }
         _ => {
             *ir += "#block(stroke:0pt,width:100%)[";
@@ -186,7 +186,7 @@ fn wrap_block(
                 .push_aux_to_main(last_block.range.end, ir.len());
             *ir += "\n]";
 
-            last_block.is_inline = true
+            last_block.is_inline = true;
         }
     }
 
@@ -253,6 +253,7 @@ pub fn remove_errornous_block(
 }
 
 /// Tries to mark the specific expressions containing errors and wraps it in a red text expression (using #text(fill:theme.error)[expr]) for visual feedback in the rendered output.
+///
 /// If marking is unsuccessful (e.g., due to complex expressions or multiple errors), it falls back to removing the entire block containing the error, as implemented in `remove_errornous_block`.
 #[typst_macros::time]
 pub fn try_mark_errornous(

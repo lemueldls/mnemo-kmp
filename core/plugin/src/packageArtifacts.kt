@@ -7,15 +7,15 @@ import kotlin.io.path.*
 @OptIn(ExperimentalPathApi::class)
 fun packageArtifacts(
     @Input coreDir: Path,
-    @Output generatedCommonSourceDir: Path,
-    @Output generatedJvmSourceDir: Path,
+    @Output generatedSourceDir: Path,
+    @Output generatedIncludeDir: Path,
+    @Output generatedJniLibsDir: Path,
     @Output generatedJvmResourcesDir: Path,
-    @Output generatedAndroidSourceDir: Path,
 ) {
-    generatedCommonSourceDir.deleteRecursively()
-    generatedJvmSourceDir.deleteRecursively()
+    generatedSourceDir.deleteRecursively()
+    generatedIncludeDir.deleteRecursively()
+    generatedJniLibsDir.deleteRecursively()
     generatedJvmResourcesDir.deleteRecursively()
-    generatedAndroidSourceDir.deleteRecursively()
 
     val process = ProcessBuilder("boltffi", "pack", "kmp")
         .directory(coreDir.toFile())
@@ -27,24 +27,27 @@ fun packageArtifacts(
         error("boltffi pack all failed with exit code $exitCode")
     }
 
-    val commonSourceDir = coreDir / "dist/kotlin-multiplatform/src/commonMain/kotlin/core";
-    commonSourceDir.copyToRecursively(
-        generatedCommonSourceDir.createParentDirectories(),
+    val sourceDir = coreDir / "dist/android/kotlin";
+    sourceDir.copyToRecursively(
+        generatedSourceDir.createParentDirectories(),
         followLinks = false
     )
-    val jvmSourceDir = coreDir / "dist/kotlin-multiplatform/src/jvmMain/kotlin/core";
-    jvmSourceDir.copyToRecursively(
-        generatedJvmSourceDir.createParentDirectories(),
+
+    val includeDir = coreDir / "dist/android/include";
+    includeDir.copyToRecursively(
+        generatedIncludeDir.createParentDirectories(),
         followLinks = false
     )
-    val jvmResourcesDir = coreDir / "dist/kotlin-multiplatform/src/jvmMain/resources";
+
+    val jniLibsDir = coreDir / "dist/android/jniLibs";
+    jniLibsDir.copyToRecursively(
+        generatedJniLibsDir.createParentDirectories(),
+        followLinks = false
+    )
+
+    val jvmResourcesDir = coreDir / "dist/kmp/src/jvmMain/resources";
     jvmResourcesDir.copyToRecursively(
         generatedJvmResourcesDir.createParentDirectories(),
-        followLinks = false
-    )
-    val androidSourceDir = coreDir / "dist/kotlin-multiplatform/src/androidMain/kotlin/core";
-    androidSourceDir.copyToRecursively(
-        generatedAndroidSourceDir.createParentDirectories(),
         followLinks = false
     )
 }
