@@ -68,8 +68,8 @@ class FontIconPainter(
     private val fontSize: TextUnit,
 ) : Painter() {
 
-  override val intrinsicSize: androidx.compose.ui.geometry.Size
-    get() = androidx.compose.ui.geometry.Size.Unspecified
+  override val intrinsicSize: Size
+    get() = Size.Unspecified
 
   override fun DrawScope.onDraw() {
     val style =
@@ -91,7 +91,7 @@ class FontIconPainter(
         )
 
     val x = (size.width - textLayoutResult.size.width) / 2f
-    val y = (size.height - textLayoutResult.size.height) / 2f
+    val y = (size.height - textLayoutResult.firstBaseline) / 2f - 1f
 
     drawText(
         textLayoutResult = textLayoutResult,
