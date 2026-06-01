@@ -7,20 +7,17 @@ edition = "2024"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-boltffi = "0.25.2"
+boltffi = { version = "0.25.2" }
 
 comemo = { version = "0.5.0" }
 dashmap = { version = "6.1.0" }
-ecow = { version = "0.2.6" }
+ecow = { version = "0.3.0" }
 flate2 = { version = "1.1.8" }
-hashbrown = { version = "0.14" }
 hex = { version = "0.4" }
 indoc = { version = "2.0.7" }
 itertools = { version = "0.14.0" }
 loro = { version = "1.12.0" }
 rustc-hash = { version = "2.1" }
-serde = { version = "1.0", features = ["derive"] }
-serde_bytes = "0.11"
 sha2 = { version = "0.11" }
 tar = { version = "0.4" }
 time = { version = "0.3" }
@@ -33,7 +30,6 @@ typst-render = { git = "https://github.com/typst/typst.git", rev = "7ada6687" }
 typst-svg = { git = "https://github.com/typst/typst.git", rev = "7ada6687" }
 typst-syntax = { git = "https://github.com/typst/typst.git", rev = "7ada6687" }
 typst-timing = { git = "https://github.com/typst/typst.git", rev = "7ada6687" }
-uuid = { version = "1.6", features = ["v4", "serde"] }
 
 [dev-dependencies]
 criterion = { version = "0.8.1", features = ["html_reports"] }
@@ -42,11 +38,11 @@ walkdir = { version = "2.5.0" }
 temp-dir = { version = "0.2.0" }
 
 [lints.clippy]
-all = { level = "warn" }
-nursery = { level = "warn" }
-pedantic = { level = "warn" }
-cargo = { level = "warn" }
-# restriction = { level = "warn" }
+all = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# cargo = { level = "warn", priority = -1 }
+# restriction = { level = "warn", priority = -1 }
 
 doc_paragraphs_missing_punctuation = "warn"
 
@@ -61,9 +57,3 @@ match_same_arms = "allow"
 format_push_string = "allow"
 redundant_closure_for_method_calls = "allow"
 used_underscore_items = "allow"
-
-# cargo
-multiple_crate_versions = "allow"
-
-# facet
-disallowed_script_idents = "allow"

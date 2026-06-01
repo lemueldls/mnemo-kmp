@@ -61,8 +61,6 @@ pub fn chunk_by_items_with_ast_blocks(
         let compiled = compile::<PagedDocument>(world);
         compiled_warnings = Some(compiled.warnings);
 
-        // crate::log!("[DOING A THING]");
-
         (chunks, tooltips, document) = match compiled.output {
             Ok(document) => {
                 let mut sink = BoundFrameSink::default();
@@ -106,8 +104,6 @@ pub fn chunk_by_items_with_ast_blocks(
                         if let Some(range) = &frame_block.range {
                             if range.end <= main_range_end {
                                 let frame_block = bound_frame_items.next().unwrap();
-
-                                // crate::log!("{frame_block:#?}");
 
                                 match block_start_width {
                                     Some(width) if width < frame_block.bounds.min.x => {}
@@ -163,9 +159,6 @@ pub fn chunk_by_items_with_ast_blocks(
 
                     remaining_items.append(&mut deferred_items);
 
-                    // crate::log!("start width: {block_start_width}");
-                    // crate::log!("end width: {block_end_width}");
-
                     let block_width = block_end_width - block_start_width;
                     let block_height = block_end_height - block_start_height;
 
@@ -207,7 +200,7 @@ pub fn chunk_by_items_with_ast_blocks(
             Err(source_diagnostics) => {
                 *divergence += 1;
                 if *divergence >= 32 {
-                    crate::error!("COULD NOT CONVERGE ‼️");
+                    eprintln!("COULD NOT CONVERGE ‼️");
 
                     break;
                 }
@@ -218,7 +211,7 @@ pub fn chunk_by_items_with_ast_blocks(
                     world,
                 ));
 
-                crate::error!("[ERRORS]: {diagnostics:?}");
+                eprintln!("[ERRORS]: {diagnostics:?}");
 
                 let marked_errors = try_mark_errornous(source_diagnostics.clone(), context, world);
 
@@ -257,10 +250,7 @@ pub fn chunk_by_items_with_ast_blocks(
                         source.edit(start_byte..(start_byte + mark.text.len()), &mark.text);
                     }
 
-                    // crate::log!("index_mapper: {:#?}", context.index_mapper);
-
                     // let text = source.text().to_string();
-                    // crate::log!("marked_text:\n{text}");
 
                     return PagedRender {
                         chunks: marked_render.chunks,
@@ -274,7 +264,7 @@ pub fn chunk_by_items_with_ast_blocks(
                     remove_errornous_block(ast_blocks, source_diagnostics, context, world);
 
                 if indicies.is_empty() {
-                    crate::error!("NO ERROR BLOCKS FOUND ‼️");
+                    eprintln!("NO ERROR BLOCKS FOUND ‼️");
 
                     break;
                 }
@@ -347,12 +337,8 @@ pub fn chunk_by_items_with_ast_blocks(
                 })
                 .unwrap_or(0..0);
 
-            // crate::log!("main_range: {main_range:?}");
-
             let aux_start = context.map_main_to_aux_from_left(main_range.start);
             let aux_end = context.map_main_to_aux_from_right(main_range.end);
-
-            // crate::log!("aux_range: {:?}", aux_start..aux_end);
 
             let aux_source = context.aux_source(world)?;
 
@@ -360,8 +346,6 @@ pub fn chunk_by_items_with_ast_blocks(
             let aux_start_utf16 = aux_lines.byte_to_utf16(aux_start - 1)?;
             let aux_end_utf16 = aux_lines.byte_to_utf16(aux_end + 1)?;
             let aux_range_utf16 = aux_start_utf16..aux_end_utf16;
-
-            // crate::log!("aux_range_utf16: {:?}", aux_start_utf16..aux_end_utf16);
 
             Some(FrameItemsChunk {
                 items: VecDeque::from(items),
@@ -373,8 +357,6 @@ pub fn chunk_by_items_with_ast_blocks(
             })
         })
         .collect();
-
-    // crate::log!("tooltips: {tooltips:#?}");
 
     PagedRender {
         chunks,
@@ -568,8 +550,6 @@ fn frame_item_range(
                         sink.push_tag(name, span);
                     }
 
-                    // crate::log!("[START FLAGS]: {flags:?} {name}");
-
                     return None;
                 }
                 Tag::End(_location, _key, flags) => {
@@ -584,8 +564,6 @@ fn frame_item_range(
                     } else {
                         return None;
                     }
-
-                    // crate::log!("[END FLAG]: {flags:?}");
 
                     // let content = document
                     //     .introspector

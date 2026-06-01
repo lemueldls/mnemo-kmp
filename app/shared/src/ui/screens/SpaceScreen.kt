@@ -9,7 +9,6 @@ import androidx.compose.ui.focus.focusRequester
 import com.monkopedia.kodemirror.commands.defaultKeymap
 import com.monkopedia.kodemirror.commands.history
 import com.monkopedia.kodemirror.commands.indentWithTab
-import com.monkopedia.kodemirror.lang.markdown.MarkdownSupportConfig
 import com.monkopedia.kodemirror.lang.markdown.markdown
 import com.monkopedia.kodemirror.materialtheme.rememberMaterialEditorTheme
 import com.monkopedia.kodemirror.search.search
@@ -25,8 +24,6 @@ fun SpaceScreen(id: String) {
   val focusRequester = remember { FocusRequester() }
   val space = MockData.spaces.find { it.id == id }
 
-  val markdown = markdown(MarkdownSupportConfig())
-
   val materialTheme = rememberMaterialEditorTheme()
   val session =
       rememberEditorSession(
@@ -35,7 +32,7 @@ fun SpaceScreen(id: String) {
               materialTheme +
                   lineNumbers +
                   history() +
-                  markdown.extension +
+                  markdown().extension +
                   search() +
                   keymapOf(defaultKeymap + indentWithTab),
       )

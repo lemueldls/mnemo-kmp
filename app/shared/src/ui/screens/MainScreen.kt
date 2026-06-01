@@ -1,6 +1,7 @@
 package ui.screens
 
 import LocalWindowSizeClass
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -111,24 +112,27 @@ fun MainScreen() {
               colors = CardDefaults.outlinedCardColors(),
               border = if (isCompact) null else CardDefaults.outlinedCardBorder(),
           ) {
-            NavDisplay(
-                backStack = backStack,
-            ) { key ->
-              NavEntry(key) { screen ->
-                when (screen.layout()) {
-                  ScreenLayout.Default ->
-                      when (screen) {
-                        Screen.Home ->
-                            HomeScreen(isCompact) { selected ->
-                              if (backStack.last() != selected) backStack.add(selected)
-                            }
-                        Screen.Calendar -> CalendarScreen(modifier = Modifier.padding(12.dp))
-                        else -> {
-                          // Fallback for future screens that map to default layout
+            SharedTransitionLayout {
+              NavDisplay(
+                  backStack = backStack,
+                  sharedTransitionScope = this,
+              ) { key ->
+                NavEntry(key) { screen ->
+                  when (screen.layout()) {
+                    ScreenLayout.Default ->
+                        when (screen) {
+                          Screen.Home ->
+                              HomeScreen(isCompact) { selected ->
+                                if (backStack.last() != selected) backStack.add(selected)
+                              }
+                          Screen.Calendar -> CalendarScreen(modifier = Modifier.padding(12.dp))
+                          else -> {
+                            // Fallback for future screens that map to default layout
+                          }
                         }
-                      }
 
-                  ScreenLayout.Space -> SpaceScreen(screen.spaceIdOrNull() ?: "")
+                    ScreenLayout.Space -> SpaceScreen(screen.spaceIdOrNull() ?: "")
+                  }
                 }
               }
             }

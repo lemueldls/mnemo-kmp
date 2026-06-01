@@ -47,8 +47,6 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
         let compiled = compile::<HtmlDocument>(&state.world);
         compiled_warnings = Some(compiled.warnings);
 
-        // crate::log!("[DOING A THING]");
-
         frames = match compiled.output {
             Ok(document) => {
                 let body = document
@@ -110,10 +108,6 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
                         // let main_range = main_range_start..main_range_end;
 
                         // while let Some((node, range, position)) = children.peek() {
-                        //     crate::debug!("comparing ast {main_range:?} with node {range:?}");
-                        //     crate::debug!("node {node:?}");
-                        //     crate::debug!("position: {position:?}");
-
                         //     if range.end <= main_range_end {
                         //         let (node, ..) = children.next().unwrap();
 
@@ -165,8 +159,6 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
                     })
                     .collect::<FxHashSet<_>>();
 
-                // crate::log!("[ERROR RANGES]: {error_ranges:?}");
-
                 // let main_source = context.main_source(&self.world);
 
                 let Some(block) = ast_blocks.iter().find(|block| {
@@ -175,8 +167,6 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
                     let main_range_start = context.map_aux_to_main_from_right(aux_range.start);
                     let main_range_end = context.map_aux_to_main_from_right(aux_range.end);
                     // let main_range = main_range_start..main_range_end;
-
-                    // crate::log!("[BLOCK RANGE]: {main_range_start} - {main_range_end}");
 
                     error_ranges.iter().any(|error_range| {
                         (main_range_start <= error_range.start
@@ -207,7 +197,7 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
                     &state.world,
                 ));
 
-                crate::error!("[ERRORS]: {diagnostics:?}");
+                eprintln!("[ERRORS]: {diagnostics:?}");
 
                 let start_byte = context.map_aux_to_main_from_right(aux_range.start);
 
@@ -218,8 +208,6 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
             }
         }
     }
-
-    crate::debug!("FRAMES: {frames:?}");
 
     if let Some(warnings) = compiled_warnings {
         diagnostics.extend(EditorDiagnostic::from_diagnostics(

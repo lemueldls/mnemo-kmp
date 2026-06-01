@@ -1,6 +1,5 @@
 product:
   type: kmp/lib
-  #  platforms: [jvm, android, wasmJs, iosSimulatorArm64, iosArm64]
   platforms: [ jvm, android ]
 
 dependencies:
@@ -24,6 +23,11 @@ dependencies:
   - $libs.kodemirror.theme.material
   - $libs.kodemirror.lang.markdown
   - bom: $libs.kodemirror.bom
+
+  - $libs.bitgrind.filestorage
+
+  # - $libs.koog.agents
+  # - $libs.koog.agents.additions
 
 plugins:
   core: enabled

@@ -22,55 +22,5 @@ boltffi::custom_type! {
     remote = PathBuf,
     repr = String,
     into_ffi = |path: &PathBuf| path.to_string_lossy().to_string(),
-    try_from_ffi = |s| Ok(PathBuf::from(s)),
-}
-
-#[macro_export]
-macro_rules! log {
-    ($($e:tt)*) => {
-        #[cfg(target_arch="wasm32")]
-        $crate::log(&format!($($e)*));
-        #[cfg(not(target_arch="wasm32"))]
-        eprintln!($($e)*);
-    };
-}
-
-#[macro_export]
-macro_rules! debug {
-    ($($e:tt)*) => {
-        #[cfg(target_arch="wasm32")]
-        $crate::debug(&format!($($e)*));
-        #[cfg(not(target_arch="wasm32"))]
-        eprintln!($($e)*);
-    };
-}
-
-#[macro_export]
-macro_rules! error {
-    ($($e:tt)*) => {
-        #[cfg(target_arch="wasm32")]
-        $crate::error(&format!($($e)*));
-        #[cfg(not(target_arch="wasm32"))]
-        eprintln!($($e)*);
-    };
-}
-
-#[macro_export]
-macro_rules! group {
-    ($($e:tt)*) => {
-        #[cfg(target_arch="wasm32")]
-        $crate::group(&format!($($e)*));
-        #[cfg(not(target_arch="wasm32"))]
-        eprintln!($($e)*);
-    };
-}
-
-#[macro_export]
-macro_rules! group_end {
-    ($($e:tt)*) => {
-        #[cfg(target_arch="wasm32")]
-        $crate::group_end(&format!($($e)*));
-        #[cfg(not(target_arch="wasm32"))]
-        eprintln!($($e)*);
-    };
+    try_from_ffi = |s: String| Ok(PathBuf::from(s)),
 }

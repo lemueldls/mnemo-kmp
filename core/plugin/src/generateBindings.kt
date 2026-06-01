@@ -11,11 +11,13 @@ fun generateBindings(
     @Output generatedJvmSourceDir: Path,
     @Output generatedJvmResourcesDir: Path,
     @Output generatedAndroidSourceDir: Path,
+    @Output generatedAndroidJniLibsDir: Path,
 ) {
     generatedCommonSourceDir.deleteRecursively()
     generatedJvmSourceDir.deleteRecursively()
     generatedJvmResourcesDir.deleteRecursively()
     generatedAndroidSourceDir.deleteRecursively()
+    generatedAndroidJniLibsDir.deleteRecursively()
 
     val process = ProcessBuilder("boltffi", "pack", "kmp")
         .directory(coreDir.toFile())
@@ -45,6 +47,11 @@ fun generateBindings(
     val androidSourceDir = coreDir / "dist/kmp/src/androidMain/kotlin/core";
     androidSourceDir.copyToRecursively(
         generatedAndroidSourceDir.createParentDirectories(),
+        followLinks = false
+    )
+    val androidJniLibsDir = coreDir / "dist/kmp/src/androidMain/jniLibs";
+    androidJniLibsDir.copyToRecursively(
+        generatedAndroidJniLibsDir.createParentDirectories(),
         followLinks = false
     )
 }

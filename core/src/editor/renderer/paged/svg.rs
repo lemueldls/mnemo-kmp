@@ -113,8 +113,6 @@ pub fn render_svgs_by_items(
         })
         .collect();
 
-    // crate::log!("tooltips: {tooltips:#?}");
-
     context.paged_document = document;
 
     SvgRender {

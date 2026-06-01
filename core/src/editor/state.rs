@@ -390,11 +390,6 @@ impl EditorState {
         let aux_cursor = aux_lines.utf16_to_byte(aux_cursor_utf16)?;
         let main_cursor = context.map_aux_to_main_from_left(aux_cursor);
 
-        // crate::log!(
-        //     "aux_cursor: {aux_cursor}, left_cursor: {main_cursor}, right_cursor: {}",
-        //     context.map_aux_to_main_from_right(aux_cursor)
-        // );
-
         let (main_offset, completions) = typst_ide::autocomplete(
             &self.world,
             context.paged_document.as_ref(),
@@ -490,7 +485,7 @@ impl EditorState {
     //                 match html {
     //                     Ok(html) => Some(html),
     //                     Err(source_diagnostics) => {
-    //                         crate::error!("[HTML ERRORS]: {source_diagnostics:?}");
+    //                         eprintln!("[HTML ERRORS]: {source_diagnostics:?}");
 
     //                         diagnostics.extend(TypstDiagnostic::from_diagnostics(
     //                             source_diagnostics,
@@ -505,7 +500,7 @@ impl EditorState {
     //             Err(source_diagnostics) => {
     //                 convergence += 1;
     //                 if convergence >= 128 {
-    //                     crate::error!("COULD NOT CONVERGE ‼️");
+    //                     eprintln!("COULD NOT CONVERGE ‼️");
 
     //                     break;
     //                 }
@@ -516,7 +511,7 @@ impl EditorState {
     //                     &mut self.world,
     //                 ));
 
-    //                 crate::error!("[ERRORS]: {diagnostics:?}");
+    //                 eprintln!("[ERRORS]: {diagnostics:?}");
 
     //                 let indicies = remove_errornous_block(
     //                     &ast_blocks,
@@ -526,7 +521,7 @@ impl EditorState {
     //                 );
 
     //                 if indicies.is_empty() {
-    //                     crate::error!("NO ERROR BLOCKS FOUND ‼️");
+    //                     eprintln!("NO ERROR BLOCKS FOUND ‼️");
 
     //                     break;
     //                 }

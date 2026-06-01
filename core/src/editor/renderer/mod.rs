@@ -135,13 +135,6 @@ pub fn sync_source_context(
         wrap_block(&mut ir, text, last_block, last_kind, context);
     }
 
-    // crate::log!("[RANGES]: {block_ranges:?}");
-
-    // crate::log!(
-    //     "[SOURCE]:\n{}",
-    //     &ir[(state.prelude(id, RenderTarget::Svg) + prelude + "\n").len()..]
-    // );
-
     (ir, ast_blocks)
 }
 
@@ -267,12 +260,6 @@ pub fn try_mark_errornous(
         .iter()
         .filter(|diagnostic| {
             main_source.find(diagnostic.span).is_some_and(|node| {
-                // crate::log!(
-                //     "err@{node:?}\n |> {:?}\n |> {:?}",
-                //     node.parent(),
-                //     node.parent().and_then(|node| node.parent())
-                // );
-
                 matches!(node.kind(), SyntaxKind::MathIdent)
                     || node.parent().is_some_and(|node| {
                         matches!(
@@ -311,7 +298,6 @@ pub fn try_mark_errornous(
         .map(|main_range| {
             let source = context.main_source_mut(world).unwrap();
             let original_text = source.text()[main_range.clone()].to_string();
-            // crate::log!("[MARKING]:\n{}", original_text);
 
             // Wrap the original text in a red text expression
             let marked_text = format!("{pre_text}{original_text}{post_text}");
@@ -320,8 +306,6 @@ pub fn try_mark_errornous(
             context
                 .index_mapper
                 .bump_main_from(main_range.end, total_wrap_len);
-
-            // crate::log!("[NEW SOURCE]:\n{}", &source.text());
 
             ErrorMark {
                 text: original_text,
@@ -340,9 +324,6 @@ pub fn try_mark_errornous(
 
 pub fn map_error_mark_index(marked_errors: &MarkedErrors, context: &mut SourceContext) {
     for mark in &marked_errors.marks {
-        // crate::log!("before: {:?}", &context.index_mapper);
-        // crate::log!("delta range: {main_range:?}");
-
         let aux_start = context
             .index_mapper
             .map_main_to_aux_from_right(mark.main_range.start);
@@ -363,8 +344,6 @@ pub fn map_error_mark_index(marked_errors: &MarkedErrors, context: &mut SourceCo
         context
             .index_mapper
             .push_aux_to_main_sorted(aux_end, mark.main_range.end + marked_errors.pre_text_len);
-
-        // crate::log!("after: {:?}", &context.index_mapper);
     }
 }
 
