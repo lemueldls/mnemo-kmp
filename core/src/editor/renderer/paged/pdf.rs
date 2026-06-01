@@ -24,18 +24,20 @@ pub fn render_pdf(id: &FileId, state: &mut EditorState) -> RenderPdfResult {
         EditorDiagnostic::from_diagnostics(compiled.warnings, context, &state.world).into_vec();
 
     let bytes = match compiled.output {
-        Ok(document) => match pdf(&document, &PdfOptions::default()) {
-            Ok(pdf) => Some(pdf),
-            Err(source_diagnostics) => {
-                diagnostics.extend(EditorDiagnostic::from_diagnostics(
-                    source_diagnostics,
-                    context,
-                    &state.world,
-                ));
+        Ok(document) => {
+            match pdf(&document, &PdfOptions::default()) {
+                Ok(pdf) => Some(pdf),
+                Err(source_diagnostics) => {
+                    diagnostics.extend(EditorDiagnostic::from_diagnostics(
+                        source_diagnostics,
+                        context,
+                        &state.world,
+                    ));
 
-                None
+                    None
+                }
             }
-        },
+        }
         Err(source_diagnostics) => {
             diagnostics.extend(EditorDiagnostic::from_diagnostics(
                 source_diagnostics,

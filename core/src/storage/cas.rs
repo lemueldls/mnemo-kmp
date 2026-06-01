@@ -3,9 +3,9 @@
 //! Stores media (images, audio, etc.) using SHA-256 hash as the key.
 //! References are stored in Loro as `asset://sha256/[hash]` URLs.
 
+use std::{fs, path::Path};
+
 use sha2::{Digest, Sha256};
-use std::fs;
-use std::path::Path;
 
 /// Compute SHA-256 hash of data and return hex-encoded string
 #[boltffi::export]
@@ -52,8 +52,9 @@ pub fn asset_exists(cas_root: &Path, hash: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use temp_dir::TempDir;
+
+    use super::*;
 
     #[test]
     fn test_compute_asset_hash() {

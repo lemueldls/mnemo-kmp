@@ -3,10 +3,11 @@
 //! This module provides a registry for managing independent `LoroDoc` instances,
 //! one per Space. It handles snapshot persistence, state vector tracking, and
 //! merging of remote updates.
+
+use std::{borrow::Cow, fs, path::PathBuf};
+
 use dashmap::DashMap;
 use loro::{ExportMode, LoroDoc, VersionVector};
-use std::fs;
-use std::{borrow::Cow, path::PathBuf};
 
 pub mod cas;
 pub mod metadata;
@@ -104,13 +105,12 @@ impl SpaceRegistry {
     ) -> Result<(), StorageError> {
         self.spaces
             .get(space_id)
-            .map_or(
-                Err(StorageError::SpaceNotFound),
-                |doc| match schema::set_daily_entry(&doc, date, file_content) {
+            .map_or(Err(StorageError::SpaceNotFound), |doc| {
+                match schema::set_daily_entry(&doc, date, file_content) {
                     Ok(()) => Ok(()),
                     Err(err) => Err(StorageError::LoroError(err.to_string())),
-                },
-            )
+                }
+            })
     }
 
     /// Get daily entry content
@@ -129,13 +129,12 @@ impl SpaceRegistry {
     ) -> Result<(), StorageError> {
         self.spaces
             .get(space_id)
-            .map_or(
-                Err(StorageError::SpaceNotFound),
-                |doc| match schema::set_daily_entry(&doc, date, text) {
+            .map_or(Err(StorageError::SpaceNotFound), |doc| {
+                match schema::set_daily_entry(&doc, date, text) {
                     Ok(()) => Ok(()),
                     Err(err) => Err(StorageError::LoroError(err.to_string())),
-                },
-            )
+                }
+            })
     }
 
     /// Save snapshot to disk atomically

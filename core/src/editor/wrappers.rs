@@ -40,11 +40,13 @@ impl EditorDiagnostic {
         errors
             .into_iter()
             .filter_map(|error| {
-                map_aux_span(error.span, true, &[], context, world).map(|range| EditorDiagnostic {
-                    range,
-                    severity: EditorDiagnosticSeverity::Error,
-                    message: error.message.to_string(),
-                    hints: error.hints.into_iter().map(|s| s.to_string()).collect(),
+                map_aux_span(error.span, true, &[], context, world).map(|range| {
+                    EditorDiagnostic {
+                        range,
+                        severity: EditorDiagnosticSeverity::Error,
+                        message: error.message.to_string(),
+                        hints: error.hints.into_iter().map(|s| s.to_string()).collect(),
+                    }
                 })
             })
             .collect()
@@ -75,15 +77,17 @@ impl EditorDiagnostic {
                     context,
                     world,
                 )
-                .map(|range| EditorDiagnostic {
-                    range,
-                    severity: EditorDiagnosticSeverity::from_severity(diagnostic.severity),
-                    message: diagnostic.message.to_string(),
-                    hints: diagnostic
-                        .hints
-                        .into_iter()
-                        .map(|s| s.v.to_string())
-                        .collect(),
+                .map(|range| {
+                    EditorDiagnostic {
+                        range,
+                        severity: EditorDiagnosticSeverity::from_severity(diagnostic.severity),
+                        message: diagnostic.message.to_string(),
+                        hints: diagnostic
+                            .hints
+                            .into_iter()
+                            .map(|s| s.v.to_string())
+                            .collect(),
+                    }
                 })
             })
             .collect()

@@ -71,10 +71,12 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
                     .flat_map(flatten_node)
                     .filter_map(|node| {
                         let location = match &node {
-                            HtmlNode::Tag(tag) => match tag {
-                                Tag::Start(content, ..) => content.location(),
-                                Tag::End(location, ..) => Some(*location),
-                            },
+                            HtmlNode::Tag(tag) => {
+                                match tag {
+                                    Tag::Start(content, ..) => content.location(),
+                                    Tag::End(location, ..) => Some(*location),
+                                }
+                            }
                             HtmlNode::Text(..) => None,
                             HtmlNode::Element(element) => element.parent,
                             HtmlNode::Frame(..) => None,
@@ -235,62 +237,64 @@ pub fn render(id: &FileId, text: &str, prelude: &str, state: &mut EditorState) -
 
 fn flatten_node(node: HtmlNode) -> Box<[HtmlNode]> {
     match node {
-        HtmlNode::Element(element) => match element.tag {
-            tag::p => Box::from_iter(element.children),
-            tag::ul => {
-                let children = element.children;
-                Box::from_iter(children.into_iter().map(|node| {
-                    HtmlNode::Element(HtmlElement {
-                        tag: tag::ul,
-                        attrs: element.attrs.clone(),
-                        children: eco_vec![node],
-                        parent: element.parent,
-                        pre_span: element.pre_span,
-                        span: Span::detached(),
-                    })
-                }))
-            }
-            tag::ol => {
-                let mut start = 1;
+        HtmlNode::Element(element) => {
+            match element.tag {
+                tag::p => Box::from_iter(element.children),
+                tag::ul => {
+                    let children = element.children;
+                    Box::from_iter(children.into_iter().map(|node| {
+                        HtmlNode::Element(HtmlElement {
+                            tag: tag::ul,
+                            attrs: element.attrs.clone(),
+                            children: eco_vec![node],
+                            parent: element.parent,
+                            pre_span: element.pre_span,
+                            span: Span::detached(),
+                        })
+                    }))
+                }
+                tag::ol => {
+                    let mut start = 1;
 
-                let children = element.children;
-                Box::from_iter(children.into_iter().map(|mut node| {
-                    let HtmlNode::Element(HtmlElement { attrs, .. }) = &mut node else {
-                        unreachable!()
-                    };
+                    let children = element.children;
+                    Box::from_iter(children.into_iter().map(|mut node| {
+                        let HtmlNode::Element(HtmlElement { attrs, .. }) = &mut node else {
+                            unreachable!()
+                        };
 
-                    if let Some(value) = attrs.get(attr::value) {
-                        start = value.parse::<u16>().unwrap() + 1;
-                    } else {
-                        attrs.push(attr::value, start.to_string());
-                        start += 1;
-                    }
+                        if let Some(value) = attrs.get(attr::value) {
+                            start = value.parse::<u16>().unwrap() + 1;
+                        } else {
+                            attrs.push(attr::value, start.to_string());
+                            start += 1;
+                        }
 
-                    HtmlNode::Element(HtmlElement {
-                        tag: tag::ol,
-                        attrs: element.attrs.clone(),
-                        children: eco_vec![node],
-                        parent: element.parent,
-                        pre_span: element.pre_span,
-                        span: Span::detached(),
-                    })
-                }))
+                        HtmlNode::Element(HtmlElement {
+                            tag: tag::ol,
+                            attrs: element.attrs.clone(),
+                            children: eco_vec![node],
+                            parent: element.parent,
+                            pre_span: element.pre_span,
+                            span: Span::detached(),
+                        })
+                    }))
+                }
+                tag::dl => {
+                    let children = element.children;
+                    Box::from_iter(children.into_iter().map(|node| {
+                        HtmlNode::Element(HtmlElement {
+                            tag: tag::dl,
+                            attrs: element.attrs.clone(),
+                            children: eco_vec![node],
+                            parent: element.parent,
+                            pre_span: element.pre_span,
+                            span: Span::detached(),
+                        })
+                    }))
+                }
+                _ => Box::from_iter(iter::once(HtmlNode::Element(element))),
             }
-            tag::dl => {
-                let children = element.children;
-                Box::from_iter(children.into_iter().map(|node| {
-                    HtmlNode::Element(HtmlElement {
-                        tag: tag::dl,
-                        attrs: element.attrs.clone(),
-                        children: eco_vec![node],
-                        parent: element.parent,
-                        pre_span: element.pre_span,
-                        span: Span::detached(),
-                    })
-                }))
-            }
-            _ => Box::from_iter(iter::once(HtmlNode::Element(element))),
-        },
+        }
         _ => Box::from_iter(iter::once(node)),
     }
 }
@@ -310,16 +314,18 @@ fn flat_node_range(
                 .children
                 .iter()
                 .map(|node| flat_node_range(node, context, world))
-                .fold(range, |a, b| match (a, b) {
-                    (Some(a), Some(b)) => {
-                        let start = cmp::min(a.start, b.start);
-                        let end = cmp::max(a.end, b.end);
+                .fold(range, |a, b| {
+                    match (a, b) {
+                        (Some(a), Some(b)) => {
+                            let start = cmp::min(a.start, b.start);
+                            let end = cmp::max(a.end, b.end);
 
-                        Some(start..end)
+                            Some(start..end)
+                        }
+                        (Some(a), None) => Some(a),
+                        (None, Some(b)) => Some(b),
+                        (None, None) => None,
                     }
-                    (Some(a), None) => Some(a),
-                    (None, Some(b)) => Some(b),
-                    (None, None) => None,
                 })
         }
         HtmlNode::Frame(frame) => map_main_span(frame.span, false, &[], context, world),

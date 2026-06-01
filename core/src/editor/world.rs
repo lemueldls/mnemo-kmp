@@ -107,7 +107,9 @@ impl World for MnemoWorld {
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
-        if let Some(source) = self.get_source(id) { Ok(source.clone()) } else {
+        if let Some(source) = self.get_source(id) {
+            Ok(source.clone())
+        } else {
             match id.package() {
                 Some(spec) => self.requested_packages.insert(spec),
                 None => self.requested_sources.insert(id.vpath()),
@@ -118,7 +120,9 @@ impl World for MnemoWorld {
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
-        if let Some(file) = self.get_file(id) { Ok(file.bytes()) } else {
+        if let Some(file) = self.get_file(id) {
+            Ok(file.bytes())
+        } else {
             match id.package() {
                 Some(spec) => self.requested_packages.insert(spec),
                 None => self.requested_files.insert(id.vpath()),

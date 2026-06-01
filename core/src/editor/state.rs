@@ -21,13 +21,14 @@ use typst_html::HtmlDocument;
 use typst_ide::Tooltip;
 use typst_syntax::{LinkedNode, Side, Tag};
 
-use crate::editor::renderer::paged::pdf::{RenderPdfResult, render_pdf};
-
 use super::{
     index_mapper::IndexMapper,
     renderer::{
         RenderTarget,
-        paged::svg::{SvgRangedFrame, render_svgs_by_items},
+        paged::{
+            pdf::{RenderPdfResult, render_pdf},
+            svg::{SvgRangedFrame, render_svgs_by_items},
+        },
         sync_source_state,
     },
     world::MnemoWorld,
@@ -438,9 +439,11 @@ impl EditorState {
             side,
         );
 
-        tooltip.map(|tooltip| match tooltip {
-            Tooltip::Text(text) => text.to_string(),
-            Tooltip::Code(text) => typst_syntax::highlight_html(&typst_syntax::parse(&text)),
+        tooltip.map(|tooltip| {
+            match tooltip {
+                Tooltip::Text(text) => text.to_string(),
+                Tooltip::Code(text) => typst_syntax::highlight_html(&typst_syntax::parse(&text)),
+            }
         })
     }
 

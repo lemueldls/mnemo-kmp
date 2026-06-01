@@ -1,5 +1,4 @@
-use std::ops::Range;
-use std::path::PathBuf;
+use std::{ops::Range, path::PathBuf};
 
 pub mod editor;
 pub mod storage;

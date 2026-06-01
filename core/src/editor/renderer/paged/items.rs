@@ -14,7 +14,7 @@ use crate::editor::{
         paged::{BoundFrameItem, FrameItemsChunk, PagedRender},
         remove_errornous_block, sync_source_context, try_mark_errornous,
     },
-    state::{SourceContext, EditorState},
+    state::{EditorState, SourceContext},
     world::MnemoWorld,
     wrappers::EditorDiagnostic,
 };
@@ -312,7 +312,8 @@ pub fn chunk_by_items_with_ast_blocks(
                     _ => block_end_height = Some(block.bounds.max.y),
                 }
 
-                if let FrameItem::Tag(..) = block.item {} else {
+                if let FrameItem::Tag(..) = block.item {
+                } else {
                     match block_start_width {
                         Some(width) if width < block.bounds.min.x => {}
                         _ => block_start_width = Some(block.bounds.min.x),
@@ -569,7 +570,7 @@ fn frame_item_range(
 
                     // crate::log!("[START FLAGS]: {flags:?} {name}");
 
-                    return None
+                    return None;
                 }
                 Tag::End(_location, _key, flags) => {
                     if flags.introspectable
