@@ -4,17 +4,20 @@ tasks:
       coreDir: ${project.rootDir}/core
       generatedCommonSourceDir: ${project.rootDir}/app/shared/src/core
       generatedJvmSourceDir: ${project.rootDir}/app/shared/src@jvm/core
-      generatedJvmResourcesDir: ${project.rootDir}/app/shared/resources@jvm/core
+      generatedJvmResourcesDir: ${project.rootDir}/app/shared/resources@jvm
       generatedAndroidSourceDir: ${project.rootDir}/app/shared/src@android/core
 
-generated:
-  sources:
-    - language: kotlin
-      directory: ${tasks.generate.action.generatedCommonSourceDir}
-  #   - language: kotlin
-  #     directory: ${tasks.generate.action.generatedJvmSourceDir}
-  #   - language: kotlin
-  #     directory: ${tasks.generate.action.generatedAndroidSourceDir}
+# generated:
+#   sources:
+#     - language: kotlin
+#       directory: ${tasks.generate.action.generatedCommonSourceDir}
+#   #   - language: kotlin
+#   #     directory: ${tasks.generate.action.generatedJvmSourceDir}
+#   #   - language: kotlin
+#   #     directory: ${tasks.generate.action.generatedAndroidSourceDir}
 
-  # resources:
-  #   - directory: ${tasks.generate.action.generatedJvmResourcesDir}
+#   # resources:
+#   #   - directory: ${tasks.generate.action.generatedJvmResourcesDir}
+
+commands:
+  - generate

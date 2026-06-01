@@ -6,7 +6,7 @@ global_args = []
 [cargo.command_args]
 
 [package]
-name = "mnemo"
+name = "mnemo-core"
 
 [targets.apple]
 enabled = false

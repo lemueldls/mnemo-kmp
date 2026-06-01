@@ -4,8 +4,6 @@ product:
   platforms: [jvm]
 
 dependencies:
-  - ../../core/plugin
-
   - $compose.foundation: exported
   - $compose.material3: exported
   - $compose.components.resources: exported
@@ -14,6 +12,11 @@ dependencies:
   - $libs.androidx.navigation3.ui
 
   - $libs.materialkolor
+
+  - $libs.kodemirror.view
+  - $libs.kodemirror.state
+  - $libs.kodemirror.commands
+  - bom: $libs.kodemirror.bom
 
 plugins:
   core: enabled
