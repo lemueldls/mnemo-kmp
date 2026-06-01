@@ -6,6 +6,9 @@ dependencies:
   - $libs.androidx.core.splashscreen
 
 settings:
-  compose: enabled
+  compose:
+    enabled: true
+    version: 1.11.0-beta03
   android:
-    namespace: dev.lemueldls.mnemo
+    namespace: world.mnemo.app
+    minSdk: 24

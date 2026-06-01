@@ -1,5 +1,6 @@
 modules:
   # - app/*
+  - app/android
   - app/desktop
   - app/shared
   - core/plugin

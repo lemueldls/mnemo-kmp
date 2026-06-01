@@ -8,12 +8,12 @@ import shared.generated.resources.app_icon
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 fun main() = application {
-    Window(
-        onCloseRequest = ::exitApplication,
-        title = "Mnemo",
-        icon = painterResource(Res.drawable.app_icon),
-    ) {
-        val windowSizeClass = calculateWindowSizeClass()
-        App(windowSizeClass)
-    }
+  Window(
+      onCloseRequest = ::exitApplication,
+      title = "Mnemo",
+      icon = painterResource(Res.drawable.app_icon),
+  ) {
+    val windowSizeClass = calculateWindowSizeClass()
+    App(windowSizeClass)
+  }
 }
