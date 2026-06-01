@@ -1,7 +1,7 @@
 product:
   type: kmp/lib
   #  platforms: [jvm, android, wasmJs, iosSimulatorArm64, iosArm64]
-  platforms: [jvm]
+  platforms: [ jvm, android ]
 
 dependencies:
   - $compose.foundation: exported
@@ -13,9 +13,16 @@ dependencies:
 
   - $libs.materialkolor
 
-  - $libs.kodemirror.view
   - $libs.kodemirror.state
+  - $libs.kodemirror.view
+  - $libs.kodemirror.language
   - $libs.kodemirror.commands
+  - $libs.kodemirror.autocomplete
+  - $libs.kodemirror.search
+  - $libs.kodemirror.lint
+  - $libs.kodemirror.collab
+  - $libs.kodemirror.theme.material
+  - $libs.kodemirror.lang.markdown
   - bom: $libs.kodemirror.bom
 
 plugins:
@@ -26,5 +33,6 @@ settings:
     serialization: json
   compose:
     enabled: true
+    version: 1.11.0-beta03
     resources:
       exposedAccessors: true

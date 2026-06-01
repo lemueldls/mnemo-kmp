@@ -124,7 +124,7 @@ fun MainScreen() {
                             }
                         Screen.Calendar -> CalendarScreen(modifier = Modifier.padding(12.dp))
                         else -> {
-                          // Fallback for future screens that map to App layout
+                          // Fallback for future screens that map to default layout
                         }
                       }
 

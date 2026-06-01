@@ -2,6 +2,7 @@ package ui.layouts
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.DrawerState
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.CoroutineScope
 import ui.components.TopBar
@@ -16,11 +17,7 @@ fun SpaceLayout(
     bottomBar: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
-  DefaultLayout(
-      isExpanded = isExpanded,
-      drawerState = drawerState,
-      scope = scope,
-      navigationContent = navigationContent,
+  Scaffold(
       topBar = {
         TopBar(
             drawerState = drawerState,
@@ -29,7 +26,8 @@ fun SpaceLayout(
             onNavigateUp = onNavigateUp,
         )
       },
-      bottomBar = bottomBar,
-      content = content,
-  )
+      bottomBar = { bottomBar() },
+  ) { paddingValues ->
+    content(paddingValues)
+  }
 }

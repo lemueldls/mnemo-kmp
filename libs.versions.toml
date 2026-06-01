@@ -1,7 +1,7 @@
 [versions]
 material3 = "1.11.0-alpha07"
 navigation3 = "1.1.1"
-kodemirror = "0.1.0"
+kodemirror = "0.2.0"
 
 [libraries]
 compose.material3.windowsizeclass = { module = "org.jetbrains.compose.material3:material3-window-size-class", version.ref = "material3" }
@@ -15,5 +15,12 @@ materialkolor = { module = "com.materialkolor:material-kolor", version = "5.0.0-
 
 kodemirror.state = { module = "com.monkopedia.kodemirror:state", version.ref = "kodemirror" }
 kodemirror.view = { module = "com.monkopedia.kodemirror:view", version.ref = "kodemirror" }
+kodemirror.language = { module = "com.monkopedia.kodemirror:language", version.ref = "kodemirror" }
 kodemirror.commands = { module = "com.monkopedia.kodemirror:commands", version.ref = "kodemirror" }
+kodemirror.autocomplete = { module = "com.monkopedia.kodemirror:autocomplete", version.ref = "kodemirror" }
+kodemirror.search = { module = "com.monkopedia.kodemirror:search", version.ref = "kodemirror" }
+kodemirror.lint = { module = "com.monkopedia.kodemirror:lint", version.ref = "kodemirror" }
+kodemirror.collab = { module = "com.monkopedia.kodemirror:collab", version.ref = "kodemirror" }
+kodemirror.theme-material = { module = "com.monkopedia.kodemirror:material-theme", version.ref = "kodemirror" }
+kodemirror.lang-markdown = { module = "com.monkopedia.kodemirror:lang-markdown", version.ref = "kodemirror" }
 kodemirror.bom = { module = "com.monkopedia.kodemirror:kodemirror-bom", version.ref = "kodemirror" }
