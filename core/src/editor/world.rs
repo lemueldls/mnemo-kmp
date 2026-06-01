@@ -103,7 +103,7 @@ impl World for MnemoWorld {
     }
 
     fn main(&self) -> FileId {
-        self.main_id.unwrap()
+        self.main_id.expect("main source file not set")
     }
 
     fn source(&self, id: FileId) -> FileResult<Source> {
@@ -138,7 +138,10 @@ impl World for MnemoWorld {
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         let now = if let Some(hours) = offset {
-            OffsetDateTime::now_utc().to_offset(UtcOffset::from_hms(hours as i8, 0, 0).unwrap())
+            let hours = i8::try_from(hours).expect("offset must be within -128 to 127 hours");
+            let offset = UtcOffset::from_hms(hours, 0, 0).expect("invalid offset hours");
+
+            OffsetDateTime::now_utc().to_offset(offset)
         } else {
             OffsetDateTime::now_utc()
         };
@@ -167,14 +170,14 @@ impl FileSlot {
     pub const fn source(&self) -> Option<&Source> {
         match self {
             FileSlot::Source(source) => Some(source),
-            _ => None,
+            FileSlot::Bytes(..) => None,
         }
     }
 
     pub const fn source_mut(&mut self) -> Option<&mut Source> {
         match self {
             FileSlot::Source(source) => Some(source),
-            _ => None,
+            FileSlot::Bytes(..) => None,
         }
     }
 

@@ -192,8 +192,8 @@ pub enum EditorJump {
 }
 
 impl EditorJump {
-    pub fn from_mapped(jump: Jump, context: &SourceContext, world: &MnemoWorld) -> Option<Self> {
-        match jump {
+    pub fn from_mapped(jump: &Jump, context: &SourceContext, world: &MnemoWorld) -> Option<Self> {
+        match *jump {
             Jump::File(id, main_position) => {
                 if id != context.main_id {
                     return None;

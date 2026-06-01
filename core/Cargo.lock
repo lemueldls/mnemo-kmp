@@ -739,12 +739,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ecow"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62bac48c16a993694c703f2991527d422d9efb8ec5625756004ba30e97683720"
-
-[[package]]
 name = "either"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2136,7 +2130,7 @@ dependencies = [
  "comemo",
  "criterion",
  "dashmap",
- "ecow 0.3.0",
+ "ecow",
  "flate2",
  "hex",
  "indoc",
@@ -3663,7 +3657,7 @@ source = "git+https://github.com/typst/typst.git?rev=7ada6687#7ada6687923fdc9168
 dependencies = [
  "arrayvec",
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "rustc-hash",
  "typst-eval",
  "typst-html",
@@ -3690,7 +3684,7 @@ version = "0.14.2"
 source = "git+https://github.com/typst/typst.git?rev=7ada6687#7ada6687923fdc9168bc0b1ce6bed72c1e56b1a5"
 dependencies = [
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "indexmap",
  "rustc-hash",
  "stacker",
@@ -3710,7 +3704,7 @@ source = "git+https://github.com/typst/typst.git?rev=7ada6687#7ada6687923fdc9168
 dependencies = [
  "bumpalo",
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "palette",
  "rustc-hash",
  "time",
@@ -3730,7 +3724,7 @@ version = "0.14.2"
 source = "git+https://github.com/typst/typst.git?rev=7ada6687#7ada6687923fdc9168bc0b1ce6bed72c1e56b1a5"
 dependencies = [
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "pathdiff",
  "rustc-hash",
  "serde",
@@ -3749,7 +3743,7 @@ dependencies = [
  "bumpalo",
  "codex",
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "either",
  "hypher",
  "icu_properties 1.5.1",
@@ -3789,7 +3783,7 @@ dependencies = [
  "codex",
  "comemo",
  "csv",
- "ecow 0.2.6",
+ "ecow",
  "flate2",
  "fontdb",
  "glidesort",
@@ -3860,7 +3854,7 @@ dependencies = [
  "az",
  "bytemuck",
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "image",
  "indexmap",
  "infer",
@@ -3885,7 +3879,7 @@ dependencies = [
  "arrayvec",
  "bumpalo",
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "regex",
  "typst-library",
  "typst-macros",
@@ -3920,7 +3914,7 @@ source = "git+https://github.com/typst/typst.git?rev=7ada6687#7ada6687923fdc9168
 dependencies = [
  "base64",
  "comemo",
- "ecow 0.2.6",
+ "ecow",
  "flate2",
  "hayro",
  "hayro-svg",
@@ -3941,7 +3935,7 @@ name = "typst-syntax"
 version = "0.14.2"
 source = "git+https://github.com/typst/typst.git?rev=7ada6687#7ada6687923fdc9168bc0b1ce6bed72c1e56b1a5"
 dependencies = [
- "ecow 0.2.6",
+ "ecow",
  "rustc-hash",
  "serde",
  "toml",

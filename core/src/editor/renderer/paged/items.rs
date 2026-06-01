@@ -499,13 +499,12 @@ struct BoundFrameSink {
 // #[comemo::track]
 impl BoundFrameSink {
     pub fn process_tooltips(&mut self, block: &BoundFrameItem) {
-        if let Some((name, _span)) = self.tag_stack.last() {
-            if *name == "equation" {
+        if let Some((name, _span)) = self.tag_stack.last()
+            && *name == "equation" {
                 let mut block = block.clone();
                 block.range = block.range;
                 self.tooltips.last_mut().unwrap().push(block);
             }
-        }
     }
 
     pub fn push_tag(&mut self, name: &'static str, span: Span) {

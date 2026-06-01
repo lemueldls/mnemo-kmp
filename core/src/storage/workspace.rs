@@ -27,6 +27,7 @@ impl WorkspaceDocument {
         WorkspaceDocument { doc }
     }
 
+    #[must_use]
     pub fn settings(&self) -> String {
         self.doc.get_map("settings").get_value().to_json()
     }
