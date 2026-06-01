@@ -4,7 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import org.jetbrains.compose.resources.DrawableResource
 
-data class Subject(
+data class Space(
+    val id: String,
     val title: String,
     val icon: String,
     val accentColor: Color

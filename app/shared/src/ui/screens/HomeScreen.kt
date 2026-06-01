@@ -13,27 +13,33 @@ import androidx.compose.ui.unit.dp
 import models.MockData
 import ui.components.DashboardHeader
 import ui.components.ReviewSection
-import ui.components.SubjectCardsRow
+import ui.components.SpaceCardsRow
 import ui.components.TasksSection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(isCompact: Boolean) {
-    Column(
-        modifier = Modifier
-            .padding(
-                horizontal = 12.dp,
-            )
-            .verticalScroll(rememberScrollState())
-    ) {
-        Spacer(modifier = Modifier.height(12.dp))
-        DashboardHeader(isCompact = isCompact)
-        Spacer(modifier = Modifier.height(12.dp))
-        SubjectCardsRow(subjects = MockData.subjects, isCompact = isCompact)
-        Spacer(modifier = Modifier.height(12.dp))
-        ReviewSection(reviews = MockData.reviews, isCompact = isCompact)
-        Spacer(modifier = Modifier.height(12.dp))
-        TasksSection(tasks = MockData.tasks, isCompact = isCompact)
-        Spacer(modifier = Modifier.height(12.dp))
-    }
+fun HomeScreen(isCompact: Boolean, onSpaceSelected: (ui.navigation.Screen) -> Unit = {}) {
+  Column(
+      modifier =
+          Modifier.padding(
+                  horizontal = 12.dp,
+              )
+              .verticalScroll(rememberScrollState())
+  ) {
+    Spacer(modifier = Modifier.height(12.dp))
+    DashboardHeader(isCompact = isCompact)
+    Spacer(modifier = Modifier.height(12.dp))
+    SpaceCardsRow(
+        spaces = MockData.spaces,
+        isCompact = isCompact,
+        onSpaceClick = { space ->
+          onSpaceSelected(ui.navigation.Screen.SpaceDetail(space.id))
+        },
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    ReviewSection(reviews = MockData.reviews, isCompact = isCompact)
+    Spacer(modifier = Modifier.height(12.dp))
+    TasksSection(tasks = MockData.tasks, isCompact = isCompact)
+    Spacer(modifier = Modifier.height(12.dp))
+  }
 }

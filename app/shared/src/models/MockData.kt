@@ -4,11 +4,11 @@ import androidx.compose.ui.graphics.Color
 import shared.generated.resources.Res
 
 object MockData {
-    val subjects = listOf(
-        Subject("Bridge to Advanced Mathematics", "fx", Color(0xFF3F51B5)),
-        Subject("University Physics II", "nodes", Color(0xFFEF5350)),
-        Subject("Data Structures", "braces", Color(0xFF7E57C2)),
-        Subject("Methods of Numerical Analysis", "chart", Color(0xFF26A69A))
+    val spaces = listOf(
+        Space("bridge-to-advanced-mathematics", "Bridge to Advanced Mathematics", "fx", Color(0xFF3F51B5)),
+        Space("university-physics-ii", "University Physics II", "nodes", Color(0xFFEF5350)),
+        Space("data-structures", "Data Structures", "braces", Color(0xFF7E57C2)),
+        Space("methods-of-numerical-analysis", "Methods of Numerical Analysis", "chart", Color(0xFF26A69A))
     )
 
     val reviews = listOf(

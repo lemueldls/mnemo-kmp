@@ -10,14 +10,14 @@ import ui.screens.MainScreen
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun App(windowSizeClass: WindowSizeClass) {
-    val settings = remember { mutableStateOf(Settings()) }
+  val settings = remember { mutableStateOf(Settings()) }
 
-    CompositionLocalProvider(
-        LocalWindowSizeClass provides windowSizeClass,
-        LocalSettings provides settings,
-    ) {
-        Theme {
-            MainScreen()
-        }
+  CompositionLocalProvider(
+      LocalWindowSizeClass provides windowSizeClass,
+      LocalSettings provides settings,
+  ) {
+    Theme {
+      MainScreen()
     }
+  }
 }
