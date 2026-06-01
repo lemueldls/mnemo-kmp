@@ -1,0 +1,6 @@
+name = "mnemo"
+main = "build/index.js"
+compatibility_date = "2026-06-02"
+
+[build]
+command = "worker-build"
