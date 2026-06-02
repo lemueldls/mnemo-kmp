@@ -4,6 +4,8 @@ dependencies:
   - ../shared
   - $libs.androidx.activity.compose
   - $libs.androidx.core.splashscreen
+  - $libs.androidx.glance.appwidget
+  - $libs.androidx.glance.material3
 
 settings:
   compose:
@@ -11,4 +13,4 @@ settings:
     version: 1.11.0-beta03
   android:
     namespace: world.mnemo.app
-    minSdk: 24
+    minSdk: 28
