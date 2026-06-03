@@ -1,16 +1,8 @@
 //! CRDT state management using Loro.
 
 pub mod cas;
+pub mod error;
+pub mod item;
 pub mod space;
+pub mod store;
 pub mod workspace;
-
-#[boltffi::error]
-#[derive(Clone)]
-pub enum StorageError {
-    SpaceNotFound,
-    IOError,
-    MergeConflict,
-    InvalidSnapshot,
-    SerializationError,
-    LoroError(String),
-}

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use boltffi::{EventSubscription, ffi_stream};
-use loro::{ExportMode, LoroDoc, ToJson, VersionVector};
+use loro::{ExportMode, LoroDoc, LoroMap, ToJson, VersionVector};
 
 use crate::storage::StorageError;
 
@@ -42,7 +42,7 @@ impl WorkspaceDocument {
     /// Export updates since a given state vector.
     pub fn export_updates(&self, from_version_vector: &[u8]) -> Result<Vec<u8>, StorageError> {
         let vv = VersionVector::decode(from_version_vector)
-            .map_err(|_| StorageError::SerializationError)?;
+            .map_err(|err| StorageError::LoroError(err.to_string()))?;
 
         self.doc
             .export(ExportMode::Updates {

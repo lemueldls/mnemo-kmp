@@ -63,7 +63,7 @@ enabled = true
 output = "dist/kmp"
 
 [targets.wasm]
-enabled = false
+enabled = true
 triple = "wasm32-unknown-unknown"
 profile = "release"
 output = "dist/wasm"

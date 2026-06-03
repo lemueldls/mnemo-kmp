@@ -2,7 +2,7 @@
 material3 = "1.11.0-alpha07"
 navigation3 = "1.1.1"
 glance = "1.2.0-rc01"
-kodemirror = "0.2.0"
+kodemirror = "0.3.0"
 
 [libraries]
 compose.material3.windowsizeclass = { module = "org.jetbrains.compose.material3:material3-window-size-class", version.ref = "material3" }

@@ -9,6 +9,34 @@ use std::{fs, path::PathBuf};
 
 use sha2::{Digest, Sha256};
 
+pub struct Cas {
+    root: PathBuf,
+}
+
+impl Cas {
+    pub fn store(&self, data: &[u8]) -> Result<AssetRef> {
+        let hash = compute_asset_hash(data);
+        let path = self.root.join(&hash);
+        if !path.exists() {
+            atomic_write(&path, data)?;
+        }
+        Ok(AssetRef(format!("asset://sha256/{hash}")))
+    }
+
+    pub fn gc(&self, live_hashes: &HashSet<String>) -> Result<usize> {
+        let mut removed = 0;
+        for entry in fs::read_dir(&self.root)? {
+            let path = entry?.path();
+            let hash = path.file_name().unwrap().to_string_lossy().to_string();
+            if !live_hashes.contains(&hash) {
+                fs::remove_file(&path)?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
+    }
+}
+
 /// Compute SHA-256 hash of data and return hex-encoded string
 #[must_use]
 #[boltffi::export]

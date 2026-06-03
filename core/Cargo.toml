@@ -12,15 +12,26 @@ boltffi = { version = "0.25.2" }
 comemo = { version = "0.5.0" }
 dashmap = { version = "6.1.0" }
 ecow = { version = "0.2.6" }
+facet = { version = "0.46.5" }
+facet-default = { version = "0.46.1" }
+facet-error = { version = "0.46.5" }
+facet-json = { version = "0.46.1" }
 flate2 = { version = "1.1.8" }
+futures = { version = "0.3" }
 hex = { version = "0.4" }
 indoc = { version = "2.0.7" }
 itertools = { version = "0.14.0" }
 loro = { version = "1.12.0" }
+notify = { version = "8.2.0" }
 rustc-hash = { version = "2.1" }
 sha2 = { version = "0.11" }
 tar = { version = "0.4" }
 time = { version = "0.3" }
+tokio-fs-ext = { version = "0.7.8", features = [
+  "opfs_offload",
+  "opfs_watch",
+  "opfs_tracing",
+] }
 typst = { git = "https://github.com/typst/typst.git", rev = "7ada6687" }
 typst-html = { git = "https://github.com/typst/typst.git", rev = "7ada6687" }
 typst-ide = { git = "https://github.com/typst/typst.git", rev = "7ada6687" }

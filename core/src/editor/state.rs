@@ -360,7 +360,7 @@ impl EditorState {
         };
 
         typst_ide::jump_from_click(&self.world, document, &position)
-            .and_then(|jump| EditorJump::from_mapped(jump, context, &self.world))
+            .and_then(|jump| EditorJump::from_mapped(&jump, context, &self.world))
     }
 
     pub fn jump_html(&mut self, id: &FileId, element: Vec<usize>) -> Option<EditorJump> {
@@ -372,7 +372,7 @@ impl EditorState {
             document,
             &HtmlPosition::new(EcoVec::from(element)),
         )
-        .and_then(|jump| EditorJump::from_mapped(jump, context, &self.world))
+            .and_then(|jump| EditorJump::from_mapped(&jump, context, &self.world))
     }
 
     pub fn autocomplete(

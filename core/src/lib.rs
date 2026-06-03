@@ -2,6 +2,7 @@ use std::{ops::Range, path::PathBuf};
 
 pub mod editor;
 pub mod storage;
+pub mod fs;
 
 #[boltffi::data]
 pub struct RangeUsize {
