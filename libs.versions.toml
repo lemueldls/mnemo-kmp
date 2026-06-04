@@ -2,7 +2,7 @@
 material3 = "1.11.0-alpha07"
 navigation3 = "1.1.1"
 glance = "1.2.0-rc01"
-kodemirror = "0.3.0"
+kodemirror = "0.3.2"
 
 [libraries]
 compose.material3.windowsizeclass = { module = "org.jetbrains.compose.material3:material3-window-size-class", version.ref = "material3" }
@@ -35,9 +35,6 @@ kodemirror.collab = { module = "com.monkopedia.kodemirror:collab", version.ref =
 kodemirror.theme.material = { module = "com.monkopedia.kodemirror:material-theme", version.ref = "kodemirror" }
 kodemirror.lang.markdown = { module = "com.monkopedia.kodemirror:lang-markdown", version.ref = "kodemirror" }
 kodemirror.bom = { module = "com.monkopedia.kodemirror:kodemirror-bom", version.ref = "kodemirror" }
-
-# File Storatge
-bitgrind.filestorage = { module = "com.bitgrind.kmp:filestorage", version = "0.1.3" }
 
 # Koog
 koog.agents = { module = "ai.koog:koog-agents", version = "1.0.0" }

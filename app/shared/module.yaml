@@ -24,8 +24,6 @@ dependencies:
   - $libs.kodemirror.lang.markdown
   - bom: $libs.kodemirror.bom
 
-  - $libs.bitgrind.filestorage
-
   # - $libs.koog.agents
   # - $libs.koog.agents.additions
 
@@ -37,6 +35,6 @@ settings:
     serialization: json
   compose:
     enabled: true
-    version: 1.11.0-beta03
+    version: 1.11.1
     resources:
       exposedAccessors: true

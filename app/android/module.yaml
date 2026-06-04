@@ -10,7 +10,8 @@ dependencies:
 settings:
   compose:
     enabled: true
-    version: 1.11.0-beta03
+    version: 1.11.1
   android:
     namespace: world.mnemo.app
     minSdk: 28
+    signing: enabled

@@ -10,7 +10,6 @@ use crate::fs::FsError;
 #[derive(Facet, Debug, Clone)]
 #[facet(derive(Error))]
 pub enum StorageError {
-    InvalidDoc(&'static str),
     LoroError(String),
     #[facet(error::from)]
     FsError(FsError),

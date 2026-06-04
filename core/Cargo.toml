@@ -1,14 +1,13 @@
 [package]
 name = "mnemo-core"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 boltffi = { version = "0.25.2" }
-
 comemo = { version = "0.5.0" }
 dashmap = { version = "6.1.0" }
 ecow = { version = "0.2.6" }
@@ -48,24 +47,5 @@ insta = { version = "1.46.3", features = ["yaml"] }
 walkdir = { version = "2.5.0" }
 temp-dir = { version = "0.2.0" }
 
-[lints.clippy]
-all = { level = "warn", priority = -1 }
-nursery = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-# cargo = { level = "warn", priority = -1 }
-# restriction = { level = "warn", priority = -1 }
-
-unwrap_used = "warn"
-doc_paragraphs_missing_punctuation = "warn"
-
-# nursery
-use_self = "allow"
-option_if_let_else = "allow"
-
-# pedantic
-missing_errors_doc = "allow"
-too_many_lines = "allow"
-match_same_arms = "allow"
-format_push_string = "allow"
-redundant_closure_for_method_calls = "allow"
-used_underscore_items = "allow"
+[lints]
+workspace = true
