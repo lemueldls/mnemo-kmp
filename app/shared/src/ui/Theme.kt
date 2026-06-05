@@ -19,19 +19,19 @@ fun Theme(
     settings: Settings = LocalSettings.current.value,
     content: @Composable () -> Unit,
 ) {
-  val darkTheme =
-      when (settings.themeMode) {
-        ThemeMode.Light -> false
-        ThemeMode.Dark -> true
-        ThemeMode.System -> isSystemInDarkTheme()
-      }
+    val darkTheme =
+        when (settings.themeMode) {
+            ThemeMode.Light -> false
+            ThemeMode.Dark -> true
+            ThemeMode.System -> isSystemInDarkTheme()
+        }
 
-  DynamicMaterialExpressiveTheme(
-      seedColor = seedColor,
-      isDark = darkTheme,
-      isAmoled = true,
-      animate = true,
-      style = PaletteStyle.Expressive,
-      content = content,
-  )
+    DynamicMaterialExpressiveTheme(
+        seedColor = seedColor,
+        isDark = darkTheme,
+        isAmoled = true,
+        animate = true,
+        style = PaletteStyle.Expressive,
+        content = content,
+    )
 }

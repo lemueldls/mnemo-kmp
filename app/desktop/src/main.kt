@@ -13,7 +13,9 @@ fun main() = application {
       title = "Mnemo",
       icon = painterResource(Res.drawable.app_icon),
   ) {
+    val workspaceRoot = getWorkspaceRoot()
     val windowSizeClass = calculateWindowSizeClass()
-    App(windowSizeClass)
+
+    App(workspaceRoot, windowSizeClass)
   }
 }

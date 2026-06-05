@@ -9,7 +9,7 @@ import ui.screens.MainScreen
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
-fun App(windowSizeClass: WindowSizeClass) {
+fun App(workspaceRoot: String, windowSizeClass: WindowSizeClass) {
   val settings = remember { mutableStateOf(Settings()) }
 
   CompositionLocalProvider(
