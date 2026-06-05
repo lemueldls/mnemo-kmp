@@ -4,7 +4,7 @@ use facet::Facet;
 use facet_error as error;
 use loro::LoroError;
 
-use crate::fs::FsError;
+use crate::storage::fs::FsError;
 
 #[boltffi::error]
 #[derive(Facet, Debug, Clone)]

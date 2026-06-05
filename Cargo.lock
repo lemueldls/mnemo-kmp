@@ -2537,6 +2537,8 @@ dependencies = [
  "loro",
  "notify",
  "rustc-hash",
+ "serde",
+ "serde_json",
  "sha2 0.11.0",
  "tar",
  "temp-dir",
@@ -2559,7 +2561,6 @@ name = "mnemo-server"
 version = "0.1.0"
 dependencies = [
  "axum",
- "loro",
  "tower-service",
  "worker",
  "worker-macros",
